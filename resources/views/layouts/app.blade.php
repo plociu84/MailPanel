@@ -763,9 +763,13 @@
     <script>
         /* ============================================================ */
         /* TOM SELECT – inicjalizacja dla wszystkich .form-select       */
+        /* ZMIANA (Etap 6.3D): sprawdź, czy już zainicjalizowany       */
         /* ============================================================ */
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('select.form-select').forEach(function(el) {
+                // Jeśli już zainicjalizowany (np. po powrocie z AJAX) — pomiń
+                if (el.tomselect) return;
+
                 new TomSelect(el, {
                     create: false,
                     sortField: {
@@ -816,7 +820,7 @@
                     return;
                 }
 
-                // Efekt „fali” – pierwsze 6 kart pojawia się z opóźnieniem
+                // Efekt „fali" – pierwsze 6 kart pojawia się z opóźnieniem
                 if (index < 6) {
                     el.style.transitionDelay = (index * 0.05) + 's';
                 }
@@ -908,6 +912,24 @@
         /* ============================================================ */
         /* Globalne funkcje dostępne dla widoków                        */
         /* ============================================================ */
+
+        /**
+         * Zwraca wartość pola formularza — z TomSelect, jeśli zainicjalizowany.
+         *
+         * ZMIANA (Etap 6.3D): TomSelect ukrywa oryginalny <select>,
+         * więc `document.getElementById(id).value` może być nieaktualne.
+         * Użyj tej funkcji w widokach, żeby zawsze dostać aktualną wartość.
+         *
+         * Użycie:
+         *   const value = getTomValue('filterJail');
+         */
+        function getTomValue(id) {
+            const el = document.getElementById(id);
+            if (!el) return '';
+            if (el.tomselect) return el.tomselect.getValue();
+            return el.value;
+        }
+
         function showPreferencesModal(content) {
             let el = document.getElementById('prefModalContent');
             if (el) el.innerText = content;
@@ -918,28 +940,56 @@
             }
         }
 
+        /**
+         * Generuje losowe hasła.
+         *
+         * ZMIANA (Etap 6.3D): Math.random() → crypto.getRandomValues().
+         * Math.random() jest pseudolosowy i przewidywalny — nie nadaje się
+         * do generowania haseł. crypto.getRandomValues() używa CSPRNG
+         * (kryptograficznie bezpiecznego generatora).
+         */
         function generateRandomPassword(targetInputId, containerId) {
-            let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_!@#$";
-            let container = document.getElementById(containerId);
+            const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_!@#$";
+            const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '';
 
-            for(let i=0; i<5; i++) {
-                let pass = "";
-                for(let j=0; j<20; j++) {
-                    pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            // Sprawdź, czy Web Crypto API jest dostępne
+            const hasCrypto = typeof window.crypto !== 'undefined'
+                && typeof window.crypto.getRandomValues === 'function';
+
+            // Fallback dla starych przeglądarek — użyj Math.random()
+            function randomIndex(max) {
+                if (hasCrypto) {
+                    const array = new Uint32Array(1);
+                    // Odrzucamy wartości, które mogłyby powodować modulo bias
+                    const maxValid = Math.floor(0xFFFFFFFF / max) * max;
+                    let value;
+                    do {
+                        window.crypto.getRandomValues(array);
+                        value = array[0];
+                    } while (value >= maxValid);
+                    return value % max;
                 }
-                let badge = document.createElement('span');
+                return Math.floor(Math.random() * max);
+            }
+
+            for (let i = 0; i < 5; i++) {
+                let pass = "";
+                for (let j = 0; j < 20; j++) {
+                    pass += chars.charAt(randomIndex(chars.length));
+                }
+                const badge = document.createElement('span');
                 badge.className = 'badge bg-secondary font-monospace';
                 badge.style.cursor = 'pointer';
                 badge.innerText = pass;
-                badge.onclick = function() {
-                    let input = document.getElementById(targetInputId);
+                badge.addEventListener('click', function() {
+                    const input = document.getElementById(targetInputId);
                     if (input) input.value = pass;
-                };
+                });
                 container.appendChild(badge);
-                if(i === 0 && targetInputId === 'password') {
-                    let input = document.getElementById(targetInputId);
+                if (i === 0 && targetInputId === 'password') {
+                    const input = document.getElementById(targetInputId);
                     if (input) input.value = pass;
                 }
             }
