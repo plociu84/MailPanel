@@ -13,10 +13,12 @@ use App\Http\Controllers\RustdeskDeviceController;
 // Trasy publiczne (Uwierzytelnianie)
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login.form');
 Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Trasy chronione dla administratora
 Route::middleware(['admin.auth'])->group(function () {
+
+    // Wylogowanie — wymaga zalogowania
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     // Dashboard
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -53,10 +55,21 @@ Route::middleware(['admin.auth'])->group(function () {
     // MODUŁ AMAVIS
     // ============================================================
     Route::get('/amavis', [AmavisController::class, 'index'])->name('amavis.index');
-    Route::post('/amavis/release/{id}', [AmavisController::class, 'release'])->name('amavis.release');
+
+    // ID to nazwa pliku z kwarantanny (np. spam-xxx, virus-xxx) — NIE numer
+    Route::post('/amavis/release/{id}', [AmavisController::class, 'release'])
+        ->where('id', '[a-zA-Z0-9_\-\.]+')
+        ->name('amavis.release');
+
     Route::post('/amavis/release-all', [AmavisController::class, 'releaseAll'])->name('amavis.release-all');
-    Route::get('/amavis/preview/{id}', [AmavisController::class, 'preview'])->name('amavis.preview');
-    Route::delete('/amavis/delete/{id}', [AmavisController::class, 'deleteQuarantine'])->name('amavis.delete');
+
+    Route::get('/amavis/preview/{id}', [AmavisController::class, 'preview'])
+        ->where('id', '[a-zA-Z0-9_\-\.]+')
+        ->name('amavis.preview');
+
+    Route::delete('/amavis/delete/{id}', [AmavisController::class, 'deleteQuarantine'])
+        ->where('id', '[a-zA-Z0-9_\-\.]+')
+        ->name('amavis.delete');
 
     // ============================================================
     // ZARZĄDZANIE UŻYTKOWNIKAMI POCZTY (Roundcube / Cyrus)
@@ -73,9 +86,13 @@ Route::middleware(['admin.auth'])->group(function () {
 
     // Zarządzanie użytkownikami poczty
     Route::get('/mail-users', [MailUserController::class, 'index'])->name('mail-users.index');
-    Route::post('/mail-users', [MailUserController::class, 'store']);
-    Route::put('/mail-users/{id}', [MailUserController::class, 'update']);
-    Route::delete('/mail-users/{id}', [MailUserController::class, 'destroy']);
+    Route::post('/mail-users', [MailUserController::class, 'store'])->name('mail-users.store');
+    Route::put('/mail-users/{id}', [MailUserController::class, 'update'])
+        ->whereNumber('id')
+        ->name('mail-users.update');
+    Route::delete('/mail-users/{id}', [MailUserController::class, 'destroy'])
+        ->whereNumber('id')
+        ->name('mail-users.destroy');
 
     // ============================================================
     // ZARZĄDZANIE UŻYTKOWNIKAMI SYSTEMOWYMI (LINUX)
