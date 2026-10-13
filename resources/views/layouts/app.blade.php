@@ -1,12 +1,3 @@
-@php
-    // Statyczne dane serwera – w przyszłości można podmienić na dynamiczne z kontrolera
-    $serverInfo = [
-        'host' => 'Mail',
-        'uptime' => '14 dni, 3 godz.',
-        'version' => 'Postfix 3.7.4 / Amavis 2.002',
-        'status' => 'online',
-    ];
-@endphp
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -733,15 +724,19 @@
                                 </div>
                             </li>
                             <li class="px-3 py-2 small text-muted">
+                                <div class="mb-1"><i class="fa-regular fa-circle-check me-2"></i>System: <strong class="text-dark">{{ $serverInfo['os'] }}</strong></div>
                                 <div class="mb-1"><i class="fa-regular fa-clock me-2"></i>Uptime: <strong class="text-dark">{{ $serverInfo['uptime'] }}</strong></div>
-                                <div><i class="fa-regular fa-circle-check me-2"></i>Wersja: <strong class="text-dark">{{ $serverInfo['version'] }}</strong></div>
+                                <div class="mb-1"><i class="fa-regular fa-circle-check me-2"></i>Postfix: <strong class="text-dark">{{ $serverInfo['postfix'] }}</strong></div>
+                                <div class="mb-1"><i class="fa-regular fa-circle-check me-2"></i>Cyrus: <strong class="text-dark">{{ $serverInfo['cyrus'] }}</strong></div>
+                                <div><i class="fa-regular fa-circle-check me-2"></i>Amavis: <strong class="text-dark">{{ $serverInfo['amavis'] }}</strong></div>
+                                <div><i class="fa-regular fa-circle-check me-2"></i>SpamAssassin: <strong class="text-dark">{{ $serverInfo['spamassassin'] }}</strong></div>
                             </li>
                             <li><hr class="dropdown-divider my-1"></li>
-                            <li>
+                            <!--<li>
                                 <a class="dropdown-item small" href="{{ route('dashboard') }}">
                                     <i class="fa-regular fa-chart-bar me-2"></i>Szczegóły serwera
                                 </a>
-                            </li>
+                            </li>-->
                         </ul>
                     </div>
                 </div>
