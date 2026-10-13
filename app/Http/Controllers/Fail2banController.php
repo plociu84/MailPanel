@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\Fail2banActionRequest;
+use App\Http\Requests\Fail2banNoteRequest;
+use App\Http\Requests\Fail2banUnbanRequest;
 use App\Models\Fail2banBan;
 use App\Models\Fail2banIpStat;
 use App\Models\Fail2banJail;
@@ -188,7 +189,7 @@ class Fail2banController extends Controller
         ));
     }
 
-    public function unban(Fail2banActionRequest $request)
+    public function unban(Fail2banUnbanRequest $request)
     {
         $ip   = $request->input('ip');
         $jail = $request->input('jail');
@@ -254,7 +255,7 @@ class Fail2banController extends Controller
         ]);
     }
 
-    public function saveNote(Fail2banActionRequest $request, string $ip)
+    public function saveNote(Fail2banNoteRequest $request, string $ip)
     {
         $stat = Fail2banIpStat::where('ip', $ip)->firstOrFail();
         $stat->notes = $request->input('notes');
