@@ -1,0 +1,33 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Frontend — 2 spacje
+[*.{js,jsx,mjs,cjs,ts,tsx,json,jsonc,html,htm,css,scss,less,vue,svelte}]
+indent_size = 2
+
+# PHP — 4 spacje (na wypadek zmiany domyślnych)
+[*.php]
+indent_size = 4
+
+# Markdown — nie usuwaj trailing whitespace
+[*.md]
+trim_trailing_whitespace = false
+
+# YAML — 2 spacje
+[*.{yml,yaml}]
+indent_size = 2
+
+# Docker Compose (z override, prod, dev...) — 4 spacje
+[{compose,docker-compose}*.{yml,yaml}]
+indent_size = 4
+
+# Pliki Windows
+[*.{bat,cmd}]
+end_of_line = crlf
