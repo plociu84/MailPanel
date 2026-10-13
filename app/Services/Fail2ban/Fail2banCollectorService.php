@@ -170,10 +170,33 @@ class Fail2banCollectorService
         }
     }
 
+    /**
+     * Zapisuje stan kolektora (file, inode, offset).
+     *
+     * ZMIANA (Etap 2A.2):
+     *  - Offset jest zapisywany tylko jeśli jest WIĘKSZY od obecnego (przy tym samym inode).
+     *  - Jeśli inode się zmienił (rotacja), zapisujemy wszystko od nowa.
+     *  - Zapobiega cofaniu offsetu przy równoległych collect().
+     */
     private function saveState(string $inode, int $offset): void
     {
-        Fail2banSyncState::set(self::STATE_FILE_KEY, $this->remotePath);
-        Fail2banSyncState::set(self::STATE_INODE_KEY, $inode);
-        Fail2banSyncState::set(self::STATE_OFFSET_KEY, $offset);
+        $currentInode  = Fail2banSyncState::get(self::STATE_INODE_KEY);
+        $currentOffset = (int) Fail2banSyncState::get(self::STATE_OFFSET_KEY, 0);
+
+        // Jeśli inode się zmienił — nowy plik, zapisz wszystko
+        if ($currentInode !== $inode) {
+            Fail2banSyncState::set(self::STATE_FILE_KEY, $this->remotePath);
+            Fail2banSyncState::set(self::STATE_INODE_KEY, $inode);
+            Fail2banSyncState::set(self::STATE_OFFSET_KEY, $offset);
+            return;
+        }
+
+        // Ten sam plik — zapisz offset tylko jeśli nowszy
+        if ($offset > $currentOffset) {
+            Fail2banSyncState::set(self::STATE_FILE_KEY, $this->remotePath);
+            Fail2banSyncState::set(self::STATE_OFFSET_KEY, $offset);
+        }
+
+        // Jeśli offset <= currentOffset — nie nadpisuj (ktoś inny zapisał nowszy)
     }
 }
