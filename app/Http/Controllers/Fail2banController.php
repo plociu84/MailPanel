@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Fail2banActionRequest;
@@ -8,6 +10,7 @@ use App\Models\Fail2banIpStat;
 use App\Models\Fail2banJail;
 use App\Services\Fail2ban\Fail2banCollectorService;
 use App\Services\Fail2ban\Fail2banSshClient;
+use App\Services\Fail2ban\Fail2banStatsService;
 use App\Services\Fail2ban\Fail2banSyncService;
 use App\Services\Fail2ban\FortigateFeedService;
 use Illuminate\Http\Request;
@@ -136,7 +139,6 @@ class Fail2banController extends Controller
             ->get(['ip', 'jail', 'banned_at', 'unbanned_at', 'ban_duration', 'unban_reason']);
 
         // 5. Lista IP recydywistów (do kopiowania) — min. X banów
-        //    Sortowanie: total_bans DESC, potem IP numerycznie (inet)
         $ipList = collect();
         if ($listBans > 0) {
             $ipQuery = Fail2banIpStat::query()
@@ -270,13 +272,11 @@ class Fail2banController extends Controller
 
         try {
             if ($stat->fortigate_banned) {
-                // Odblokuj — usuń z feedu
                 $feed->remove($ip);
                 $stat->fortigate_banned    = false;
                 $stat->fortigate_banned_at = null;
                 $action = 'removed';
             } else {
-                // Zablokuj — dodaj do feedu
                 $feed->add($ip);
                 $stat->fortigate_banned    = true;
                 $stat->fortigate_banned_at = now();
@@ -346,11 +346,19 @@ class Fail2banController extends Controller
         ]);
     }
 
-    public function refresh(Request $request)
+    /**
+     * Odświeżenie — collect + sync + jedno refreshIpStats.
+     *
+     * ZMIANA (Etap 2B.3): collect i sync wołane z refreshStats: false,
+     * a refreshIpStats wykonujemy raz na końcu — zamiast dwa razy
+     * (raz w collect, raz w sync).
+     */
+    public function refresh(Request $request, Fail2banStatsService $stats)
     {
         try {
-            app(Fail2banCollectorService::class)->collect();
-            app(Fail2banSyncService::class)->sync();
+            app(Fail2banCollectorService::class)->collect(refreshStats: false);
+            app(Fail2banSyncService::class)->sync(refreshStats: false);
+            $stats->refreshIpStats();
 
             Cache::put('fail2ban_last_synced', now()->format('H:i:s'), 3600);
 
@@ -363,7 +371,7 @@ class Fail2banController extends Controller
 
             return redirect()->back()->with('success', 'Zsynchronizowano Fail2ban.');
         } catch (\Throwable $e) {
-            Log::error('Fail2ban refresh failed', ['error' => $e->getMessage()]);
+            Log::error('Fail2ban refresh failed', ['exception' => $e]);
 
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
