@@ -748,6 +748,21 @@ let currentNoteIp = null;
 let pollInterval = null;
 let pollDots = '';
 
+/**
+ * Escapuje HTML w wartościach wstawianych do innerHTML.
+ * Chroni przed stored XSS przez pola z bazy (notes, jail, unban_reason itp.).
+ */
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/[&<>"']/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[c]));
+}
+
 function startSync() {
     const btn = document.getElementById('refresh-fail2ban-btn');
     const statusText = document.getElementById('sync-status-text');
@@ -947,10 +962,10 @@ function showIpHistory(ip) {
             let summary = `
                 <div class="d-flex gap-3 flex-wrap">
                     <div><strong>Łącznie banów:</strong> <span class="badge bg-warning text-dark">${data.total_bans}×</span></div>
-                    <div><strong>Jaile:</strong> ${(data.jails || []).map(j => `<span class="badge bg-secondary">${j}</span>`).join(' ')}</div>
-                    <div><strong>FortiGate:</strong> ${data.fortigate_banned ? '<span class="badge bg-dark">TAK (' + (data.fortigate_banned_at || '') + ')</span>' : '<span class="badge bg-light text-muted">NIE</span>'}</div>
+                    <div><strong>Jaile:</strong> ${(data.jails || []).map(j => `<span class="badge bg-secondary">${escapeHtml(j)}</span>`).join(' ')}</div>
+                    <div><strong>FortiGate:</strong> ${data.fortigate_banned ? '<span class="badge bg-dark">TAK (' + escapeHtml(data.fortigate_banned_at || '') + ')</span>' : '<span class="badge bg-light text-muted">NIE</span>'}</div>
                 </div>
-                ${data.notes ? '<div class="mt-2 small"><strong>Notatka:</strong> ' + data.notes + '</div>' : ''}
+                ${data.notes ? '<div class="mt-2 small"><strong>Notatka:</strong> ' + escapeHtml(data.notes) + '</div>' : ''}
             `;
             document.getElementById('histSummary').innerHTML = summary;
 
@@ -961,16 +976,16 @@ function showIpHistory(ip) {
             }
             tbody.innerHTML = data.bans.map(b => `
                 <tr>
-                    <td><span class="badge bg-secondary">${b.jail}</span></td>
-                    <td class="small">${b.banned_at}</td>
-                    <td class="small">${b.unbanned_at || '<span class="text-success">aktywny</span>'}</td>
+                    <td><span class="badge bg-secondary">${escapeHtml(b.jail)}</span></td>
+                    <td class="small">${escapeHtml(b.banned_at)}</td>
+                    <td class="small">${b.unbanned_at ? escapeHtml(b.unbanned_at) : '<span class="text-success">aktywny</span>'}</td>
                     <td class="small">${b.ban_duration ? formatDuration(b.ban_duration) : '—'}</td>
-                    <td class="small text-muted">${b.unban_reason || '—'}</td>
+                    <td class="small text-muted">${escapeHtml(b.unban_reason || '—')}</td>
                 </tr>
             `).join('');
         })
         .catch(err => {
-            document.getElementById('histTableBody').innerHTML = `<tr><td colspan="5" class="text-danger">Błąd: ${err.message}</td></tr>`;
+            document.getElementById('histTableBody').innerHTML = `<tr><td colspan="5" class="text-danger">Błąd: ${escapeHtml(err.message)}</td></tr>`;
         });
 }
 
