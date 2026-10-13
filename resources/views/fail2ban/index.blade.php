@@ -831,9 +831,14 @@ function resetButton() {
     }
 }
 
+/**
+ * Zastosuj filtry — używa getTomValue() zamiast getElementById().value,
+ * bo TomSelect ukrywa oryginalne <select> i trzyma wartość u siebie.
+ * getTomValue() jest zdefiniowane w layouts/app.blade.php.
+ */
 document.getElementById('btnApplyFilters').addEventListener('click', function () {
-    const jail = document.getElementById('filterJail').value;
-    const date = document.getElementById('filterDate').value;
+    const jail = getTomValue('filterJail');
+    const date = getTomValue('filterDate');
     const minBans = document.getElementById('filterMinBans').value;
     const tab = '{{ $activeTab }}';
     const params = new URLSearchParams({ jail, date, min_bans: minBans, tab });
