@@ -38,10 +38,10 @@
 
             /* Typografia */
             --font-family-base: "Inter", "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --font-size-sm: 0.875rem;   /* 14px – sidebar */
-            --font-size-base: 0.9375rem; /* 15px – treść */
-            --font-size-md: 1rem;       /* 16px – header */
-            --font-size-lg: 1.15rem;    /* 18.4px – logo */
+            --font-size-sm: 0.875rem;
+            --font-size-base: 0.9375rem;
+            --font-size-md: 1rem;
+            --font-size-lg: 1.15rem;
             --line-height-base: 1.6;
             --font-weight-regular: 400;
             --font-weight-medium: 500;
@@ -64,7 +64,6 @@
             width: 100vw;
             min-height: 100vh;
         }
-        /* Sidebar (Menu boczne) */
         .pcoded-navbar {
             width: var(--sidebar-width);
             background: #fff;
@@ -135,8 +134,6 @@
             text-align: center;
             transition: color 0.2s ease-in-out;
         }
-
-        /* Styl dla ikony SVG w menu (RustDesk) */
         .pcoded-inner-navbar li a .nav-icon-rustdesk {
             width: 18px;
             height: 18px;
@@ -154,8 +151,6 @@
             mask-position: center;
             transition: background-color 0.2s ease-in-out;
         }
-
-        /* Aktywna pozycja – bez tła, tylko primary */
         .pcoded-inner-navbar li.active a {
             background-color: transparent;
             color: var(--primary-color);
@@ -166,8 +161,6 @@
         .pcoded-inner-navbar li.active a .nav-icon-rustdesk {
             background-color: var(--primary-color);
         }
-
-        /* Hover – tylko kolor ikony i tekstu, bez tła */
         .pcoded-inner-navbar li a:hover {
             background-color: transparent;
             color: var(--primary-color);
@@ -178,8 +171,6 @@
         .pcoded-inner-navbar li a:hover .nav-icon-rustdesk {
             background-color: var(--primary-color);
         }
-
-        /* Przycisk wylogowania na dole sidebaru – jak elementy menu, ale w czerwieni */
         .sidebar-footer {
             padding: 18px 20px;
             border-top: 1px solid var(--border-soft);
@@ -216,8 +207,6 @@
         .sidebar-footer .btn-logout:hover i {
             color: #dc3545;
         }
-
-        /* Główna zawartość */
         .pcoded-content {
             margin-left: var(--sidebar-width);
             width: calc(100% - var(--sidebar-width));
@@ -245,8 +234,6 @@
         .pcoded-main-container {
             padding: 30px;
         }
-
-        /* Hamburger – widoczny tylko na mobile */
         .btn-hamburger {
             display: none;
             align-items: center;
@@ -265,8 +252,6 @@
         .btn-hamburger:hover {
             color: var(--primary-color);
         }
-
-        /* Overlay – ciemne tło pod sidebarem na mobile */
         .sidebar-overlay {
             display: none;
             position: fixed;
@@ -280,10 +265,6 @@
             display: block;
             opacity: 1;
         }
-
-        /* ============================================================ */
-        /* KARTY – płaskie, z delikatnym obramowaniem                    */
-        /* ============================================================ */
         .card {
             border: 1px solid var(--border-soft-2);
             border-radius: var(--card-radius);
@@ -309,10 +290,6 @@
         .card .card-body {
             padding: 20px;
         }
-
-        /* ============================================================ */
-        /* TABELE – lżejsze, bez uppercase, więcej oddechu               */
-        /* ============================================================ */
         .table {
             margin-bottom: 0;
         }
@@ -335,8 +312,6 @@
         .table > :not(caption) > * > * {
             padding: 0.875rem 1rem;
         }
-
-        /* Style dla sticky thead w tabelach */
         .table thead.sticky-top th {
             background-color: #fff;
             position: sticky;
@@ -344,10 +319,6 @@
             z-index: 10;
             box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.06);
         }
-
-        /* ============================================================ */
-        /* UJEDNOLICENIE OBRAMOWAŃ – inputy, selecty, input-group       */
-        /* ============================================================ */
         .form-control,
         .form-select,
         .input-group-text {
@@ -366,8 +337,6 @@
         .form-select:hover {
             border-color: #d0d5dd;
         }
-
-        /* Delikatna strzałka w selectach – SVG w kolorze --icon-muted */
         .form-select {
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%237e879c' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
             background-repeat: no-repeat;
@@ -381,8 +350,6 @@
         .form-select:focus {
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23448aff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
         }
-
-        /* Spójna wysokość small */
         .form-control-sm,
         .form-select-sm {
             height: calc(1.5em + 0.5rem + 2px);
@@ -393,8 +360,6 @@
             padding-right: 1.75rem;
             background-position: right 0.5rem center;
         }
-
-        /* Input-group – jednolite obramowanie */
         .input-group > .form-control:not(:first-child),
         .input-group > .form-select:not(:first-child),
         .input-group > .input-group-text:not(:first-child) {
@@ -405,21 +370,15 @@
         .input-group > .input-group-text:not(:last-child) {
             border-right: 1px solid var(--border-soft-2);
         }
-
-        /* Dropdown – spójne obramowanie */
         .dropdown-menu {
             border: 1px solid var(--border-soft-2);
             border-radius: 10px;
         }
-
-        /* ============================================================ */
-        /* BADGE HOST – mniejszy o 5%, z ikoną hamburgera               */
-        /* ============================================================ */
         .host-badge {
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
-            font-size: 0.95rem;      /* 5% mniejsze niż domyślny 1rem */
+            font-size: 0.95rem;
             padding: 0.55rem 0.85rem;
             border-radius: 10px;
             line-height: 1.2;
@@ -435,10 +394,6 @@
             opacity: 0.7;
             margin-left: 0.15rem;
         }
-
-        /* ============================================================ */
-        /* WYMUSZENIE JEDNOLITEGO OBRAMOWANIA – usunięcie akcentów      */
-        /* ============================================================ */
         .card,
         .alert,
         .callout,
@@ -457,7 +412,6 @@
         /* TOM SELECT – DOSTOSOWANIE DO LAYOUTU                         */
         /* ============================================================ */
 
-        /* Pole wyboru (zamknięte) */
         .ts-wrapper.form-select .ts-control {
             border: 1px solid var(--border-soft-2) !important;
             border-radius: 8px !important;
@@ -469,55 +423,45 @@
             min-height: calc(1.5em + 0.5rem + 2px);
             transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
         }
-
         .ts-wrapper.form-select .ts-control:hover {
             border-color: #d0d5dd !important;
         }
-
-        /* Pole wyboru w stanie focus */
         .ts-wrapper.form-select.focus .ts-control {
             border-color: var(--primary-color) !important;
             box-shadow: 0 0 0 0.2rem rgba(68, 138, 255, 0.15) !important;
         }
-
-        /* Ukrywamy domyślną strzałkę, bo Tom Select ma swoją */
         .ts-wrapper.form-select::after {
             display: none !important;
         }
 
-        /* Rozwijana lista – wysoki z-index, żeby nie chowała się pod tabelą */
+        /* Dropdown TomSelect — renderowany na body, wysoki z-index */
         .ts-dropdown {
             border: 1px solid var(--border-soft-2) !important;
             border-radius: 8px !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
             margin-top: 4px !important;
             overflow: hidden;
             background-color: #fff;
-            z-index: 1060 !important;
+            z-index: 9999 !important;
+            width: auto !important;
+            min-width: 200px;
+            max-width: 400px;
         }
-
-        /* Pojedyncza opcja na liście */
         .ts-dropdown .option {
             padding: 0.5rem 0.75rem;
             font-size: 0.8125rem;
             color: var(--text-main);
             transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
         }
-
-        /* Opcja pod kursorem lub aktywna */
         .ts-dropdown .option:hover,
         .ts-dropdown .option.active {
             background-color: rgba(68, 138, 255, 0.08) !important;
             color: var(--primary-color) !important;
         }
-
-        /* Wybrana opcja */
         .ts-dropdown .option.selected {
             background-color: var(--primary-color) !important;
             color: #fff !important;
         }
-
-        /* Styl dla grupowania (optgroup) - jeśli używasz */
         .ts-dropdown .optgroup-header {
             font-weight: var(--font-weight-semibold);
             color: var(--text-muted);
@@ -538,16 +482,17 @@
             opacity: 1;
             transform: translateY(0);
         }
-
-        /* Karty wewnątrz modali – zawsze widoczne (scroll reveal ich nie dotyczy) */
+        html.js-enabled .tab-pane .card {
+            opacity: 1 !important;
+            transform: none !important;
+            transition: none !important;
+        }
         html.js-enabled .modal .card,
         html.js-enabled .modal .card.card-visible {
             opacity: 1 !important;
             transform: none !important;
             transition: none !important;
         }
-
-        /* Dostępność – jeśli użytkownik ma reduce-motion, wyłącz animację */
         @media (prefers-reduced-motion: reduce) {
             html.js-enabled .card {
                 opacity: 1;
@@ -555,10 +500,6 @@
                 transition: none;
             }
         }
-
-        /* ============================================================ */
-        /* RESPONSYWNOŚĆ – sidebar jako off-canvas na mobile            */
-        /* ============================================================ */
         @media (max-width: 991.98px) {
             .pcoded-navbar {
                 width: min(280px, 85vw);
@@ -600,17 +541,14 @@
                     <span class="pcoded-mtext">Menu</span>
                 </li>
 
-                <!-- Dashboard -->
                 <li class="{{ Request::routeIs('dashboard') ? 'active' : '' }}">
                     <a href="{{ route('dashboard') }}"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
                 </li>
 
-                <!-- Użytkownicy poczty -->
                 <li class="{{ Request::is('mail-users*') ? 'active' : '' }}">
                     <a href="{{ url('/mail-users') }}"><i class="fa-regular fa-user"></i><span>Użytkownicy poczty</span></a>
                 </li>
 
-                <!-- Użytkownicy systemowi -->
                 <li class="{{ Request::routeIs('system.users.*') ? 'active' : '' }}">
                     <a href="{{ route('system.users.index') }}">
                         <i class="fa-solid fa-user-gear"></i>
@@ -618,7 +556,6 @@
                     </a>
                 </li>
 
-                <!-- Grupy systemowe -->
                 <li class="{{ Request::routeIs('system.groups.*') ? 'active' : '' }}">
                     <a href="{{ route('system.groups.index') }}">
                         <i class="fa-solid fa-layer-group"></i>
@@ -626,7 +563,6 @@
                     </a>
                 </li>
 
-                <!-- Fail2Ban -->
                 <li class="{{ Request::routeIs('fail2ban.*') ? 'active' : '' }}">
                     <a href="{{ route('fail2ban.index') }}">
                         <i class="fa-solid fa-shield-halved"></i>
@@ -634,7 +570,6 @@
                     </a>
                 </li>
 
-                <!-- Amavis -->
                 <li class="{{ Request::routeIs('amavis.*') ? 'active' : '' }}">
                     <a href="{{ route('amavis.index') }}">
                         <i class="fa-regular fa-envelope"></i>
@@ -642,7 +577,6 @@
                     </a>
                 </li>
 
-                <!-- Aliasy Postfix -->
                 <li class="{{ Request::routeIs('aliases.*') ? 'active' : '' }}">
                     <a href="{{ route('aliases.index') }}">
                         <i class="fa-regular fa-at"></i>
@@ -650,7 +584,6 @@
                     </a>
                 </li>
 
-                <!-- Nadawcy Postfix -->
                 <li class="{{ Request::routeIs('sender-rules.*') ? 'active' : '' }}">
                     <a href="{{ route('sender-rules.index') }}">
                         <i class="fa-regular fa-paper-plane"></i>
@@ -658,7 +591,6 @@
                     </a>
                 </li>
 
-                <!-- Odbiorcy wewnętrzni -->
                 <li class="{{ Request::routeIs('internal-rcpts.*') ? 'active' : '' }}">
                     <a href="{{ route('internal-rcpts.index') }}">
                         <i class="fa-regular fa-user"></i>
@@ -666,7 +598,6 @@
                     </a>
                 </li>
 
-                <!-- RustDesk -->
                 <li class="{{ Request::routeIs('rustdesk.*') ? 'active' : '' }}">
                     <a href="{{ route('rustdesk.index') }}">
                         <span class="nav-icon-rustdesk"></span>
@@ -676,9 +607,6 @@
 
             </ul>
 
-            <!-- ============================================================ -->
-            <!-- PRZYCISK WYLOGOWANIA NA DOLE SIDEBARU                        -->
-            <!-- ============================================================ -->
             <div class="sidebar-footer">
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf
@@ -690,10 +618,8 @@
 
         </nav>
 
-        <!-- Overlay dla mobile -->
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-        <!-- Główna zawartość -->
         <div class="pcoded-content">
 
             <header class="pcoded-header" id="appHeader">
@@ -728,15 +654,15 @@
                                 <div class="mb-1"><i class="fa-regular fa-clock me-2"></i>Uptime: <strong class="text-dark">{{ $serverInfo['uptime'] }}</strong></div>
                                 <div class="mb-1"><i class="fa-regular fa-circle-check me-2"></i>Postfix: <strong class="text-dark">{{ $serverInfo['postfix'] }}</strong></div>
                                 <div class="mb-1"><i class="fa-regular fa-circle-check me-2"></i>Cyrus: <strong class="text-dark">{{ $serverInfo['cyrus'] }}</strong></div>
-                                <div><i class="fa-regular fa-circle-check me-2"></i>Amavis: <strong class="text-dark">{{ $serverInfo['amavis'] }}</strong></div>
+                                <div class="mb-1"><i class="fa-regular fa-circle-check me-2"></i>Amavis: <strong class="text-dark">{{ $serverInfo['amavis'] }}</strong></div>
                                 <div><i class="fa-regular fa-circle-check me-2"></i>SpamAssassin: <strong class="text-dark">{{ $serverInfo['spamassassin'] }}</strong></div>
                             </li>
                             <li><hr class="dropdown-divider my-1"></li>
-                            <!--<li>
+                            <li>
                                 <a class="dropdown-item small" href="{{ route('dashboard') }}">
                                     <i class="fa-regular fa-chart-bar me-2"></i>Szczegóły serwera
                                 </a>
-                            </li>-->
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -757,39 +683,77 @@
     <!-- Globalne funkcje JavaScript dostępne dla widoków -->
     <script>
         /* ============================================================ */
-        /* TOM SELECT – inicjalizacja dla wszystkich .form-select       */
-        /* ZMIANA (Etap 6.3D): sprawdź, czy już zainicjalizowany       */
+        /* TOM SELECT – inicjalizacja i naprawa dla modalów             */
         /* ============================================================ */
+
+        /**
+         * Inicjalizuje TomSelect dla danego <select>.
+         *
+         * Kluczowe: dropdownParent = 'body' (nie modal!).
+         * Dzięki temu dropdown renderuje się poza modalem i TomSelect
+         * może poprawnie zmierzyć szerokość.
+         */
+        function initTomSelect(el) {
+            if (!el || el.tomselect) return;
+
+            new TomSelect(el, {
+                create: false,
+                maxOptions: 500,
+                sortField: {
+                    field: "text",
+                    direction: "asc"
+                },
+                dropdownParent: 'body',
+                render: {
+                    option: function(data, escape) {
+                        return '<div>' + escape(data.text) + '</div>';
+                    },
+                    item: function(data, escape) {
+                        return '<div>' + escape(data.text) + '</div>';
+                    }
+                }
+            });
+        }
+
+        function refreshTomSelectInModal(modal) {
+            modal.querySelectorAll('select.form-select').forEach(function(el) {
+                if (el.tomselect) {
+                    const value = el.tomselect.getValue();
+                    el.tomselect.destroy();
+                    initTomSelect(el);
+                    if (value !== null && value !== undefined && value !== '') {
+                        el.tomselect.setValue(value, true);
+                    }
+                } else {
+                    initTomSelect(el);
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('select.form-select').forEach(function(el) {
-                // Jeśli już zainicjalizowany (np. po powrocie z AJAX) — pomiń
-                if (el.tomselect) return;
+                if (el.closest('.modal')) return;
+                initTomSelect(el);
+            });
 
-                new TomSelect(el, {
-                    create: false,
-                    sortField: {
-                        field: "text",
-                        direction: "asc"
-                    },
-                    dropdownParent: el.closest('.modal') || 'body',
-                    render: {
-                        option: function(data, escape) {
-                            return '<div>' + escape(data.text) + '</div>';
-                        },
-                        item: function(data, escape) {
-                            return '<div>' + escape(data.text) + '</div>';
-                        }
-                    }
+            document.querySelectorAll('.modal').forEach(function(modal) {
+                modal.addEventListener('shown.bs.modal', function() {
+                    setTimeout(function() {
+                        refreshTomSelectInModal(modal);
+                    }, 100);
                 });
             });
         });
 
         /* ============================================================ */
-        /* SCROLL REVEAL – karty pojawiają się przy przewijaniu         */
+        /* SCROLL REVEAL                                                */
         /* ============================================================ */
         (function() {
+            document.querySelectorAll('.tab-pane .card, .modal .card').forEach(function(el) {
+                el.classList.add('card-visible');
+            });
+
             if (!('IntersectionObserver' in window)) {
-                // Fallback dla starych przeglądarek – pokaż wszystko
                 document.querySelectorAll('.card').forEach(function(el) {
                     el.classList.add('card-visible');
                 });
@@ -809,22 +773,24 @@
             });
 
             document.querySelectorAll('.card').forEach(function(el, index) {
-                // Pomiń karty wewnątrz modali – nie chcemy ich ukrywać
-                if (el.closest('.modal')) {
-                    el.classList.add('card-visible');
+                if (el.closest('.tab-pane') || el.closest('.modal')) {
                     return;
                 }
-
-                // Efekt „fali" – pierwsze 6 kart pojawia się z opóźnieniem
                 if (index < 6) {
                     el.style.transitionDelay = (index * 0.05) + 's';
                 }
                 observer.observe(el);
             });
+
+            setTimeout(function() {
+                document.querySelectorAll('.card:not(.card-visible)').forEach(function(el) {
+                    el.classList.add('card-visible');
+                });
+            }, 1000);
         })();
 
         /* ============================================================ */
-        /* RESPONSYWNOŚĆ – sidebar off-canvas na mobile                 */
+        /* RESPONSYWNOŚĆ – sidebar off-canvas                           */
         /* ============================================================ */
         (function() {
             const sidebar = document.getElementById('appSidebar');
@@ -859,7 +825,6 @@
                 overlay.addEventListener('click', closeSidebar);
             }
 
-            // Zamknij sidebar po kliknięciu linku (tylko na mobile)
             if (sidebar) {
                 sidebar.querySelectorAll('a').forEach(function(link) {
                     link.addEventListener('click', function() {
@@ -870,14 +835,12 @@
                 });
             }
 
-            // Zamknij sidebar po zmianie rozmiaru okna na desktop
             window.addEventListener('resize', function() {
                 if (window.innerWidth >= 992) {
                     closeSidebar();
                 }
             });
 
-            // Zamknij klawiszem Escape
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
                     closeSidebar();
@@ -908,16 +871,6 @@
         /* Globalne funkcje dostępne dla widoków                        */
         /* ============================================================ */
 
-        /**
-         * Zwraca wartość pola formularza — z TomSelect, jeśli zainicjalizowany.
-         *
-         * ZMIANA (Etap 6.3D): TomSelect ukrywa oryginalny <select>,
-         * więc `document.getElementById(id).value` może być nieaktualne.
-         * Użyj tej funkcji w widokach, żeby zawsze dostać aktualną wartość.
-         *
-         * Użycie:
-         *   const value = getTomValue('filterJail');
-         */
         function getTomValue(id) {
             const el = document.getElementById(id);
             if (!el) return '';
@@ -935,29 +888,18 @@
             }
         }
 
-        /**
-         * Generuje losowe hasła.
-         *
-         * ZMIANA (Etap 6.3D): Math.random() → crypto.getRandomValues().
-         * Math.random() jest pseudolosowy i przewidywalny — nie nadaje się
-         * do generowania haseł. crypto.getRandomValues() używa CSPRNG
-         * (kryptograficznie bezpiecznego generatora).
-         */
         function generateRandomPassword(targetInputId, containerId) {
             const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_!@#$";
             const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '';
 
-            // Sprawdź, czy Web Crypto API jest dostępne
             const hasCrypto = typeof window.crypto !== 'undefined'
                 && typeof window.crypto.getRandomValues === 'function';
 
-            // Fallback dla starych przeglądarek — użyj Math.random()
             function randomIndex(max) {
                 if (hasCrypto) {
                     const array = new Uint32Array(1);
-                    // Odrzucamy wartości, które mogłyby powodować modulo bias
                     const maxValid = Math.floor(0xFFFFFFFF / max) * max;
                     let value;
                     do {

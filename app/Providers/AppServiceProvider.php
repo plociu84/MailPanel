@@ -1,21 +1,30 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Providers;
 
-use App\Services\Fail2ban\Fail2banSshClient;
+use App\Services\MailServerInfoService;
+use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(Fail2banSshClient::class, function () {
-            return new Fail2banSshClient();
-        });
+        //
     }
 
     public function boot(): void
     {
-        \Illuminate\Pagination\Paginator::useBootstrapFive();
+        // Paginacja w stylu Bootstrap 5 (aplikacja używa Bootstrapa, nie Tailwinda)
+        Paginator::useBootstrapFive();
+
+        // Udostępnij $serverInfo wszystkim widokom.
+        // Serwis cache'uje dane na 5 minut, więc SSH nie leci przy każdym żądaniu.
+        View::composer('*', function ($view) {
+            $view->with('serverInfo', app(MailServerInfoService::class)->get());
+        });
     }
 }

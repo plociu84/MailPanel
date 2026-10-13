@@ -136,7 +136,7 @@
             <div class="row g-2 mt-2">
                 <div class="col-md-6">
                     <form method="GET" action="{{ route('fail2ban.index') }}">
-                        @foreach(request()->except('q', 'active_page', 'history_page', 'repeat_page', 'tab') as $key => $value)
+                        @foreach(request()->except('q', 'active_page', 'history_page', 'repeat_page', 'fortigate_page', 'tab') as $key => $value)
                             <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                         @endforeach
                         <input type="hidden" name="tab" value="{{ $activeTab }}">
@@ -152,7 +152,7 @@
                             </button>
                             @if($search !== '')
                                 <a href="{{ route('fail2ban.index', array_merge(
-                                        request()->except('q', 'active_page', 'history_page', 'repeat_page', 'tab'),
+                                        request()->except('q', 'active_page', 'history_page', 'repeat_page', 'fortigate_page', 'tab'),
                                         ['tab' => $activeTab]
                                     )) }}"
                                    class="btn btn-outline-secondary" title="Wyczyść">
@@ -167,7 +167,7 @@
                         <span class="text-muted small">
                             <i class="fa-solid fa-filter me-1"></i>
                             Filtr: <strong>{{ $search }}</strong> — znaleziono
-                            <strong>{{ $activeBans->total() + $historyIps->total() + $repeatOffenders->total() }}</strong> pasujących
+                            <strong>{{ $activeBans->total() + $historyIps->total() + $repeatOffenders->total() + $fortigateBlocked->total() }}</strong> pasujących
                         </span>
                     </div>
                 @endif
@@ -199,6 +199,13 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
+            <button class="nav-link {{ $activeTab === 'fortigate' ? 'active' : '' }}"
+                    data-bs-toggle="tab" data-bs-target="#tab-fortigate" type="button">
+                <i class="fa-solid fa-shield icon-muted me-1"></i> Fortigate Blocks
+                <span class="badge bg-dark ms-1">{{ $fortigateBlocked->total() }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
             <button class="nav-link {{ $activeTab === 'logs' ? 'active' : '' }}"
                     data-bs-toggle="tab" data-bs-target="#tab-logs" type="button">
                 <i class="fa-solid fa-file-lines icon-muted me-1"></i> Logi (100)
@@ -221,9 +228,9 @@
         <div class="tab-pane fade {{ $activeTab === 'active' ? 'show active' : '' }}" id="tab-active" role="tabpanel">
             <div class="card">
                 <div class="card-body p-2">
-                    <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--border-soft-2); border-radius: 8px;">
+                    <div style="border: 1px solid var(--border-soft-2); border-radius: 8px; overflow: hidden;">
                         <table class="table table-sm table-hover table-condensed align-middle mb-0" id="tblActive">
-                            <thead class="sticky-top">
+                            <thead>
                                 <tr>
                                     <th>IP</th>
                                     <th>Jail</th>
@@ -304,7 +311,6 @@
                         </table>
                     </div>
 
-                    <!-- PAGINACJA: Aktywne -->
                     <div class="mt-2">
                         {{ $activeBans->links() }}
                     </div>
@@ -316,9 +322,9 @@
         <div class="tab-pane fade {{ $activeTab === 'history' ? 'show active' : '' }}" id="tab-history" role="tabpanel">
             <div class="card">
                 <div class="card-body p-2">
-                    <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--border-soft-2); border-radius: 8px;">
+                    <div style="border: 1px solid var(--border-soft-2); border-radius: 8px; overflow: hidden;">
                         <table class="table table-sm table-hover table-condensed align-middle mb-0" id="tblHistory">
-                            <thead class="sticky-top">
+                            <thead>
                                 <tr>
                                     <th>IP</th>
                                     <th>Jail</th>
@@ -393,13 +399,13 @@
             </div>
         </div>
 
-        <!-- ZAKŁADKA: RECYDYWIŚCI -->
+        <!-- ZAKŁADKA: RECYDYWIŚCI (niezablokowani na FortiGate) -->
         <div class="tab-pane fade {{ $activeTab === 'repeat' ? 'show active' : '' }}" id="tab-repeat" role="tabpanel">
             <div class="card">
                 <div class="card-body p-2">
-                    <div style="max-height: 600px; overflow-y: auto; border: 1px solid var(--border-soft-2); border-radius: 8px;">
+                    <div style="border: 1px solid var(--border-soft-2); border-radius: 8px; overflow: hidden;">
                         <table class="table table-sm table-hover table-condensed align-middle mb-0">
-                            <thead class="sticky-top">
+                            <thead>
                                 <tr>
                                     <th>#</th>
                                     <th>IP</th>
@@ -432,9 +438,6 @@
                                             @else
                                                 <span class="badge bg-success">Odbanowany</span>
                                             @endif
-                                            @if($stat->fortigate_banned)
-                                                <span class="badge bg-dark">FortiGate</span>
-                                            @endif
                                         </td>
                                         <td class="text-end">
                                             <div class="d-flex justify-content-end gap-1">
@@ -444,10 +447,10 @@
                                                 <button class="btn btn-sm btn-outline-primary py-1 px-2 border-0" onclick="showNoteModal('{{ $stat->ip }}', @js($stat->notes))" title="Notatka">
                                                     <i class="fa-solid fa-note-sticky"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-primary py-1 px-2 border-0 {{ $stat->fortigate_banned ? 'active' : '' }}"
+                                                <button class="btn btn-sm btn-outline-dark py-1 px-2 border-0"
                                                         onclick="toggleFortigate('{{ $stat->ip }}', this)"
-                                                        title="{{ $stat->fortigate_banned ? 'Usuń z feedu FortiGate' : 'Dodaj do feedu FortiGate' }}">
-                                                    <i class="fa-solid fa-shield"></i>
+                                                        title="Zablokuj na FortiGate">
+                                                    <i class="fa-solid fa-shield"></i> Zablokuj
                                                 </button>
                                             </div>
                                         </td>
@@ -458,7 +461,7 @@
                                             @if($search !== '')
                                                 Brak recydywistów pasujących do „{{ $search }}”.
                                             @else
-                                                Brak recydywistów.
+                                                Brak recydywistów (wszyscy zablokowani na FortiGate).
                                             @endif
                                         </td>
                                     </tr>
@@ -467,9 +470,84 @@
                         </table>
                     </div>
 
-                    <!-- PAGINACJA: Recydywiści -->
                     <div class="mt-2">
                         {{ $repeatOffenders->links() }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ZAKŁADKA: FORTIGATE BLOCKS (zablokowani na FortiGate) -->
+        <div class="tab-pane fade {{ $activeTab === 'fortigate' ? 'show active' : '' }}" id="tab-fortigate" role="tabpanel">
+            <div class="card">
+                <div class="card-body p-2">
+                    <div style="border: 1px solid var(--border-soft-2); border-radius: 8px; overflow: hidden;">
+                        <table class="table table-sm table-hover table-condensed align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>IP</th>
+                                    <th>Jail(e)</th>
+                                    <th class="text-center">Razy banowany</th>
+                                    <th>Data blokady na Forti</th>
+                                    <th>Notatka</th>
+                                    <th class="text-end">Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($fortigateBlocked as $i => $stat)
+                                    <tr>
+                                        <td class="text-muted">{{ $fortigateBlocked->firstItem() + $i }}</td>
+                                        <td class="fw-bold font-monospace">{{ $stat->ip }}</td>
+                                        <td>
+                                            @foreach($stat->jails ?? [] as $j)
+                                                <span class="badge bg-secondary">{{ $j }}</span>
+                                            @endforeach
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-warning text-dark">{{ $stat->total_bans }}×</span>
+                                        </td>
+                                        <td class="small text-muted">{{ $stat->fortigate_banned_at?->format('Y-m-d H:i') }}</td>
+                                        <td class="small text-muted" style="max-width: 200px;">
+                                            @if($stat->notes)
+                                                <span title="{{ $stat->notes }}">{{ Str::limit($stat->notes, 40) }}</span>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="d-flex justify-content-end gap-1">
+                                                <button class="btn btn-sm btn-outline-primary py-1 px-2 border-0" onclick="showIpHistory('{{ $stat->ip }}')" title="Historia">
+                                                    <i class="fa-solid fa-clock-rotate-left"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-primary py-1 px-2 border-0" onclick="showNoteModal('{{ $stat->ip }}', @js($stat->notes))" title="Notatka">
+                                                    <i class="fa-solid fa-note-sticky"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-success py-1 px-2 border-0"
+                                                        onclick="toggleFortigate('{{ $stat->ip }}', this)"
+                                                        title="Odblokuj na FortiGate">
+                                                    <i class="fa-solid fa-unlock"></i> Odblokuj
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">
+                                            @if($search !== '')
+                                                Brak zablokowanych na FortiGate pasujących do „{{ $search }}”.
+                                            @else
+                                                Brak zablokowanych na FortiGate.
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-2">
+                        {{ $fortigateBlocked->links() }}
                     </div>
                 </div>
             </div>
@@ -479,7 +557,7 @@
         <div class="tab-pane fade {{ $activeTab === 'logs' ? 'show active' : '' }}" id="tab-logs" role="tabpanel">
             <div class="card">
                 <div class="card-body p-2">
-                    <div style="max-height: 600px; overflow-y: auto; background-color: #1e1e2e; color: #cdd6f4; border: 1px solid #313244; font-family: Consolas, Monaco, monospace; font-size: 0.82rem; padding: 12px; border-radius: 6px;">
+                    <div style="background-color: #1e1e2e; color: #cdd6f4; border: 1px solid #313244; font-family: Consolas, Monaco, monospace; font-size: 0.82rem; padding: 12px; border-radius: 6px;">
                         @forelse($recentEvents as $ev)
                             <div>
                                 <span class="text-secondary">{{ $ev->banned_at->format('Y-m-d H:i:s') }}</span>
@@ -509,8 +587,7 @@
 
                     <!-- Formularz: min. liczba banów -->
                     <form method="GET" action="{{ route('fail2ban.index') }}" class="row g-2 align-items-end mb-3">
-                        {{-- Zachowaj wszystkie inne parametry (jail, q itd.) --}}
-                        @foreach(request()->except('list_bans', 'active_page', 'history_page', 'repeat_page', 'tab', 'download', 'download_feed') as $key => $value)
+                        @foreach(request()->except('list_bans', 'active_page', 'history_page', 'repeat_page', 'fortigate_page', 'tab', 'download', 'download_feed') as $key => $value)
                             <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                         @endforeach
                         <input type="hidden" name="tab" value="list">
@@ -527,7 +604,7 @@
                         </div>
                         <div class="col-md-3">
                             <a href="{{ route('fail2ban.index', array_merge(
-                                    request()->except('list_bans', 'active_page', 'history_page', 'repeat_page', 'tab', 'download', 'download_feed'),
+                                    request()->except('list_bans', 'active_page', 'history_page', 'repeat_page', 'fortigate_page', 'tab', 'download', 'download_feed'),
                                     ['tab' => 'list']
                                 )) }}"
                                class="btn btn-sm btn-outline-secondary w-100">
@@ -536,7 +613,6 @@
                         </div>
                     </form>
 
-                    {{-- Wynik --}}
                     @if($listBans > 0)
                         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                             <div class="small text-muted">
@@ -556,7 +632,7 @@
                                         <i class="fa-solid fa-copy me-1"></i> Kopiuj
                                     </button>
                                     <a href="{{ route('fail2ban.index', array_merge(
-                                            request()->except('active_page', 'history_page', 'repeat_page', 'download', 'download_feed'),
+                                            request()->except('active_page', 'history_page', 'repeat_page', 'fortigate_page', 'download', 'download_feed'),
                                             ['tab' => 'list', 'list_bans' => $listBans, 'download' => 1]
                                         )) }}"
                                        class="btn btn-sm btn-outline-success">
@@ -572,7 +648,7 @@
                             </div>
                         @else
                             <pre id="ipListPre" class="border rounded p-3 mb-0"
-                                 style="background:#f8f9fa; font-size:0.85rem; max-height:600px; overflow:auto; white-space:pre;">{{ $ipList->implode("\n") }}</pre>
+                                 style="background:#f8f9fa; font-size:0.85rem; white-space:pre; overflow-x:auto;">{{ $ipList->implode("\n") }}</pre>
                         @endif
                     @else
                         <div class="alert alert-secondary mb-0">
@@ -596,7 +672,7 @@
                                 <i class="fa-solid fa-eye me-1"></i> Podgląd feedu
                             </button>
                             <a href="{{ route('fail2ban.index', array_merge(
-                                    request()->except('active_page', 'history_page', 'repeat_page', 'download', 'download_feed'),
+                                    request()->except('active_page', 'history_page', 'repeat_page', 'fortigate_page', 'download', 'download_feed'),
                                     ['tab' => 'list', 'download_feed' => 1]
                                 )) }}"
                                class="btn btn-sm btn-outline-dark">
@@ -624,9 +700,9 @@
                 </div>
                 <div class="modal-body">
                     <div id="histSummary" class="mb-3"></div>
-                    <div id="histTableWrapper" style="max-height: 400px; overflow-y: auto;">
+                    <div id="histTableWrapper">
                         <table class="table table-sm table-condensed table-hover align-middle mb-0">
-                            <thead class="sticky-top">
+                            <thead>
                                 <tr>
                                     <th>Jail</th>
                                     <th>Ban od</th>
@@ -693,8 +769,15 @@
 
 @push('styles')
 <style>
-    #tblActive thead th,
-    #tblHistory thead th,
+    /* Sticky header tylko w modalach (nie w głównych tabelach) */
+    .modal .table thead.sticky-top th {
+        background-color: #fff;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.06);
+    }
+
     .tab-content table thead th {
         cursor: default;
         white-space: nowrap;
@@ -831,11 +914,6 @@ function resetButton() {
     }
 }
 
-/**
- * Zastosuj filtry — używa getTomValue() zamiast getElementById().value,
- * bo TomSelect ukrywa oryginalne <select> i trzyma wartość u siebie.
- * getTomValue() jest zdefiniowane w layouts/app.blade.php.
- */
 document.getElementById('btnApplyFilters').addEventListener('click', function () {
     const jail = getTomValue('filterJail');
     const date = getTomValue('filterDate');
@@ -845,7 +923,6 @@ document.getElementById('btnApplyFilters').addEventListener('click', function ()
     window.location = '{{ route('fail2ban.index') }}?' + params.toString();
 });
 
-// Synchronizacja URL z aktywną zakładką przy kliknięciu
 document.querySelectorAll('#f2bTabs button[data-bs-toggle="tab"]').forEach(btn => {
     btn.addEventListener('shown.bs.tab', function (e) {
         const tab = e.target.getAttribute('data-bs-target').replace('#tab-', '');
@@ -854,11 +931,11 @@ document.querySelectorAll('#f2bTabs button[data-bs-toggle="tab"]').forEach(btn =
         url.searchParams.delete('active_page');
         url.searchParams.delete('history_page');
         url.searchParams.delete('repeat_page');
+        url.searchParams.delete('fortigate_page');
         window.history.replaceState({}, '', url);
     });
 });
 
-// Kopiowanie listy IP do schowka
 function copyIpList(btn) {
     const pre = document.getElementById('ipListPre');
     if (!pre) return;
@@ -886,7 +963,6 @@ function copyIpList(btn) {
         });
 }
 
-// Kopiowanie feedu z modala
 function copyFeed() {
     const pre = document.getElementById('feedPre');
     if (!pre) return;
@@ -902,7 +978,6 @@ function copyFeed() {
         .catch(err => alert('Nie udało się skopiować: ' + err.message));
 }
 
-// Podgląd feedu
 function previewFeed() {
     const modal = new bootstrap.Modal(document.getElementById('modalFeedPreview'));
     document.getElementById('feedPre').textContent = 'Ładowanie...';
@@ -928,7 +1003,6 @@ function previewFeed() {
     });
 }
 
-// Ręczna synchronizacja feedu z bazy
 function syncFeed() {
     if (!confirm('Nadpisać plik feedu listą IP z bazy (fortigate_banned = true)?')) {
         return;
@@ -1040,6 +1114,12 @@ function saveNote() {
     .catch(err => alert('Błąd: ' + err.message));
 }
 
+/**
+ * Przełącza blokadę na FortiGate.
+ *
+ * ZMIANA: po sukcesie robi location.reload(), żeby wpis "przeniósł się"
+ * między zakładkami (Recydywiści ↔ Fortigate Blocks).
+ */
 function toggleFortigate(ip, btn) {
     fetch(`/fail2ban/ip/${ip}/fortigate`, {
         method: 'POST',
@@ -1051,18 +1131,8 @@ function toggleFortigate(ip, btn) {
     .then(r => r.json().then(data => ({ status: r.status, data })))
     .then(({ status, data }) => {
         if (data.success) {
-            if (data.fortigate_banned) {
-                btn.classList.add('active');
-                btn.title = 'Usuń z feedu FortiGate';
-            } else {
-                btn.classList.remove('active');
-                btn.title = 'Dodaj do feedu FortiGate';
-            }
-            // Opcjonalnie: aktualizacja licznika w karcie statystyk
-            const feedBadge = document.querySelector('.badge[title="Liczba IP w pliku f2b-ips.txt"]');
-            if (feedBadge && typeof data.feed_count === 'number') {
-                feedBadge.textContent = 'feed: ' + data.feed_count;
-            }
+            // Krótkie opóźnienie, żeby użytkownik zobaczył feedback (opcjonalnie)
+            location.reload();
         } else {
             alert('Błąd: ' + (data.message || 'nieznany'));
         }

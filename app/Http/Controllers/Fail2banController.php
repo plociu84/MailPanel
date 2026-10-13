@@ -25,7 +25,7 @@ class Fail2banController extends Controller
         private Fail2banSshClient $ssh,
     ) {}
 
-    public function index(Request $request, FortigateFeedService $feed)
+        public function index(Request $request, FortigateFeedService $feed)
     {
         $selectedJail = $request->get('jail', 'all');
         $statusFilter = $request->get('status', 'active');
@@ -36,7 +36,7 @@ class Fail2banController extends Controller
 
         // Aktywna zakładka — walidacja whitelistą
         $activeTab = $request->get('tab', 'active');
-        if (! in_array($activeTab, ['active', 'history', 'repeat', 'logs', 'list'], true)) {
+        if (! in_array($activeTab, ['active', 'history', 'repeat', 'fortigate', 'logs', 'list'], true)) {
             $activeTab = 'active';
         }
 
@@ -52,7 +52,7 @@ class Fail2banController extends Controller
         ];
 
         // Parametry zachowywane w linkach paginacji (wspólne filtry)
-        $keepParams = $request->only(['jail', 'date', 'min_bans', 'q']);
+        $keepParams = $request->only(['jail', 'date', 'min_bans', 'q', 'list_bans']);
 
         // 1. Aktywne bany
         $activeBansQuery = Fail2banIpStat::query()->where('currently_banned', true);
@@ -112,8 +112,10 @@ class Fail2banController extends Controller
             ->appends($keepParams)
             ->appends(['tab' => 'history']);
 
-        // 3. Recydywiści (min. 2 bany)
-        $repeatOffendersQuery = Fail2banIpStat::query()->where('total_bans', '>=', 2);
+        // 3. Recydywiści (min. 2 bany) — TYLKO niezablokowani na FortiGate
+        $repeatOffendersQuery = Fail2banIpStat::query()
+            ->where('total_bans', '>=', 2)
+            ->where('fortigate_banned', false);
 
         if ($selectedJail !== 'all') {
             $repeatOffendersQuery->whereRaw("jails @> ?::jsonb", [json_encode([$selectedJail])]);
@@ -132,6 +134,24 @@ class Fail2banController extends Controller
             ->paginate(50, ['*'], 'repeat_page')
             ->appends($keepParams)
             ->appends(['tab' => 'repeat']);
+
+        // 3b. Fortigate Blocks — TYLKO zablokowani na FortiGate
+        $fortigateQuery = Fail2banIpStat::query()
+            ->where('fortigate_banned', true);
+
+        if ($selectedJail !== 'all') {
+            $fortigateQuery->whereRaw("jails @> ?::jsonb", [json_encode([$selectedJail])]);
+        }
+
+        if ($search !== '') {
+            $fortigateQuery->where('ip', 'ILIKE', "%{$search}%");
+        }
+
+        $fortigateBlocked = $fortigateQuery
+            ->orderByDesc('fortigate_banned_at')
+            ->paginate(50, ['*'], 'fortigate_page')
+            ->appends($keepParams)
+            ->appends(['tab' => 'fortigate']);
 
         // 4. Ostatnie zdarzenia z logów
         $recentEvents = Fail2banBan::query()
@@ -184,7 +204,7 @@ class Fail2banController extends Controller
         return view('fail2ban.index', compact(
             'jails', 'selectedJail', 'statusFilter', 'dateFilter',
             'minBans', 'search', 'stats', 'activeBans',
-            'historyIps', 'repeatOffenders', 'recentEvents',
+            'historyIps', 'repeatOffenders', 'fortigateBlocked', 'recentEvents',
             'activeTab', 'listBans', 'ipList', 'fortigateFeedCount'
         ));
     }
