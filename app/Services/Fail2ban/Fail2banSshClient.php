@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Fail2ban;
 
 use Illuminate\Support\Facades\Log;
@@ -37,9 +39,12 @@ class Fail2banSshClient
         private int $connectTimeout = 10,
         private int $commandTimeout = 60,
     ) {
-        $this->host    = config('services.ssh.host');
-        $this->sshKey  = config('services.ssh.key');
-        $this->sshUser = config('services.ssh.user');
+        $this->host    = (string) config('services.ssh.host');
+        $this->sshKey  = (string) config('services.ssh.key');
+        $this->sshUser = (string) config('services.ssh.user');
+
+        // Katalog na gniazda ControlMaster i known_hosts
+        $this->ensureSshRuntimeDir();
     }
 
     public function fileSize(string $remotePath): int
@@ -67,14 +72,19 @@ class Fail2banSshClient
 
     public function run(string $remoteCommand): string
     {
+        $controlPath = $this->sshRuntimeDir() . '/cm-%C';
+        $knownHosts  = $this->sshRuntimeDir() . '/known_hosts';
+
         $sshCommand = [
             'ssh',
             '-i', $this->sshKey,
             '-o', 'StrictHostKeyChecking=accept-new',
+            '-o', 'UserKnownHostsFile=' . $knownHosts,
+            '-o', 'IdentitiesOnly=yes',
             '-o', 'BatchMode=yes',
             '-o', 'ConnectTimeout=' . $this->connectTimeout,
             '-o', 'ControlMaster=auto',
-            '-o', 'ControlPath=/tmp/ssh-cm-%r@%h:%p',
+            '-o', 'ControlPath=' . $controlPath,
             '-o', 'ControlPersist=60s',
             '-o', 'LogLevel=ERROR',
             $this->sshUser . '@' . $this->host,
@@ -100,6 +110,33 @@ class Fail2banSshClient
         }
 
         return $stdout;
+    }
+
+    /**
+     * Katalog na gniazda ControlMaster i known_hosts.
+     * W storage/app/ssh — poza /tmp, który może być czyszczony.
+     */
+    private function sshRuntimeDir(): string
+    {
+        return storage_path('app/ssh');
+    }
+
+    /**
+     * Tworzy katalog na runtime SSH (jeśli nie istnieje).
+     * Uprawnienia 0700 — tylko właściciel (www-data) ma dostęp.
+     */
+    private function ensureSshRuntimeDir(): void
+    {
+        $dir = $this->sshRuntimeDir();
+
+        if (!is_dir($dir)) {
+            if (!@mkdir($dir, 0700, true) && !is_dir($dir)) {
+                throw new \RuntimeException("Nie mogę utworzyć katalogu: {$dir}");
+            }
+        }
+
+        // Upewnij się, że uprawnienia są 0700 (nawet jeśli katalog istniał)
+        @chmod($dir, 0700);
     }
 
     private function logStderr(string $command, string $stderr, ?int $exitCode, bool $success): void
