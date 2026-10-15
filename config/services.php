@@ -41,4 +41,9 @@ return [
         'key'  => env('SSH_KEY', '/var/www/.ssh/id_rsa'),
     ],
 
+    'cyrus' => [
+        'admin_user'     => env('CYRUS_ADMIN_USER', 'cyrus'),
+        'admin_password' => env('CYRUS_ADMIN_PASSWORD'),
+    ],
+
 ];
