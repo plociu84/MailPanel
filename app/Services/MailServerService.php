@@ -53,7 +53,8 @@ class MailServerService
         $imieNazwisko = trim($imie . ' ' . $nazwisko);
         $emailPl = $emailLocalPart . '@telmor.pl';
         $emailComPl = $emailLocalPart . '@telmor.com.pl';
-        $cyrusPassword = 'driac4l5d4';
+        $cyrusUser = (string) config('services.cyrus.admin_user', 'cyrus');
+        $cyrusPassword = (string) config('services.cyrus.admin_password');
 
         $script = "set -x;\n";
         $script .= "echo '=== START TWORZENIA KONTA: " . $login . " (" . date('Y-m-d H:i:s') . ") ===' >> /var/log/konta.log;\n";
@@ -89,7 +90,7 @@ class MailServerService
         $script .= "quit\n";
         $script .= "EOF_CYRADM\n";
         
-        $script .= sprintf("export TERM=dumb; cyradm --user cyrus --password %s localhost < /tmp/cyradm_commands.txt 2>&1 | sed 's/localhost> //g';\n", $cyrusPassword);
+        $script .= sprintf("export TERM=dumb; cyradm --user %s --password %s localhost < /tmp/cyradm_commands.txt 2>&1 | sed 's/localhost> //g';\n", escapeshellarg($cyrusUser), escapeshellarg($cyrusPassword));
         $script .= "rm -f /tmp/cyradm_commands.txt;\n";
 
         // 4. Baza Roundcube
