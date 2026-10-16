@@ -195,17 +195,57 @@
         </div>
     </div>
 
-    <!-- Sekcja Syslog -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fa-solid fa-terminal me-2 icon-muted" style="opacity: 0.85;"></i> Ostatnie błędy systemu (Syslog)</h5>
+    <!-- Sekcja Syslog + logi operacji na kontach pocztowych -->
+    <div class="row log-row mt-4">
+        <!-- Syslog -->
+        <div class="col-xl-6 d-flex flex-column">
+            <div class="card flex-fill">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fa-solid fa-terminal me-2 icon-muted" style="opacity: 0.85;"></i> Ostatnie błędy systemu (Syslog)</h5>
                     <span class="badge bg-primary-subtle text-primary px-2 py-1" style="font-size: 0.75rem;">System Logs</span>
                 </div>
                 <div class="card-body" style="display: block !important;">
                     <div style="height: 400px !important; max-height: 400px !important; min-height: 400px !important; overflow-y: scroll !important; overflow-x: hidden !important; background-color: #1e1e2e; color: #cdd6f4; border: 1px solid #313244; font-family: Consolas, Monaco, 'Courier New', monospace; font-size: 0.85rem; padding: 15px; border-radius: 6px; white-space: normal; word-break: break-all; line-height: 1.6; box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #45475a #181825;">
                         {!! nl2br(e($syslogErrors)) !!}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logi z tworzenia konta (Użytkownicy poczty) -->
+        @php
+            $actionColors = [
+                'Utworzenie' => '#a6e3a1',
+                'Aktualizacja' => '#f9e2af',
+                'Usunięcie' => '#f38ba8',
+            ];
+        @endphp
+        <div class="col-xl-6 d-flex flex-column">
+            <div class="card flex-fill">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fa-solid fa-user-plus me-2 icon-muted" style="opacity: 0.85;"></i> Logi z tworzenia konta</h5>
+                    <a href="{{ route('mail-users.index') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fa-solid fa-users me-1"></i> Użytkownicy poczty
+                    </a>
+                </div>
+                <div class="card-body d-flex flex-column" style="padding: 15px; flex: 1; overflow: hidden;">
+                    <div style="height: 400px !important; max-height: 400px !important; min-height: 400px !important; overflow-y: scroll !important; overflow-x: hidden !important; background-color: #1e1e2e; color: #cdd6f4; border: 1px solid #313244; font-family: Consolas, Monaco, 'Courier New', monospace; font-size: 0.85rem; padding: 15px; border-radius: 6px; white-space: normal; word-break: break-all; line-height: 1.6; box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #45475a #181825;">
+                        @if($mailAccountLogError)
+                            <div style="color: #f38ba8;">{{ $mailAccountLogError }}</div>
+                        @else
+                            @forelse($mailAccountLog as $entry)
+                                <div style="padding: 4px 0; border-bottom: 1px solid #313244;">
+                                    <span style="color: #6c7086;">{{ $entry['date'] }}</span>
+                                    <span style="color: {{ $actionColors[$entry['action']] ?? '#cdd6f4' }}; font-weight: 600;">{{ $entry['action'] }}</span>
+                                    <span style="color: #89dceb; font-weight: bold;">{{ $entry['login'] }}</span>
+                                    @foreach($entry['steps'] as $step)
+                                        <div style="color: #6c7086; font-size: 0.75rem; padding-left: 10px;">↳ {{ $step }}</div>
+                                    @endforeach
+                                </div>
+                            @empty
+                                <div style="color: #6c7086;">Brak wpisów o kontach w /var/log/konta.log</div>
+                            @endforelse
+                        @endif
                     </div>
                 </div>
             </div>

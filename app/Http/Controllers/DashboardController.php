@@ -8,6 +8,12 @@ use App\Services\Fail2ban\Fail2banSshClient;
 
 class DashboardController extends Controller
 {
+    /** Ile najnowszych wpisów z logu kont pokazujemy w panelu dashboardu. */
+    private const MAIL_LOG_MAX_ENTRIES = 15;
+
+    /** Ile ostatnich linii logu kont pobieramy z serwera poczty (wpisy wraz z krokami). */
+    private const MAIL_LOG_TAIL_LINES = 400;
+
     public function __construct(
         private Fail2banSshClient $ssh,
     ) {}
@@ -46,8 +52,8 @@ class DashboardController extends Controller
                 $cols = preg_split('/\s+/', $freeLines[1]);
                 $ramInfo = [
                     'total' => (int) ($cols[1] ?? 0),
-                    'used'  => (int) ($cols[2] ?? 0),
-                    'free'  => (int) ($cols[3] ?? 0),
+                    'used' => (int) ($cols[2] ?? 0),
+                    'free' => (int) ($cols[3] ?? 0),
                 ];
             }
         } catch (\Throwable $e) {
@@ -62,8 +68,8 @@ class DashboardController extends Controller
             if (count($parts) >= 3) {
                 $diskInfo = [
                     'total' => (int) str_replace('G', '', $parts[0]),
-                    'used'  => (int) str_replace('G', '', $parts[1]),
-                    'free'  => (int) str_replace('G', '', $parts[2]),
+                    'used' => (int) str_replace('G', '', $parts[1]),
+                    'free' => (int) str_replace('G', '', $parts[2]),
                 ];
             }
         } catch (\Throwable $e) {
@@ -77,15 +83,29 @@ class DashboardController extends Controller
         try {
             $syslogRaw = $this->ssh->run("grep -iE 'error|failed|failure|crit|alert|emerg' /var/log/syslog | tail -n 50");
             $lines = array_filter(explode("\n", trim($syslogRaw)));
-            if (!empty($lines)) {
+            if (! empty($lines)) {
                 $syslogErrors = implode("\n", array_reverse(array_slice($lines, -40)));
             }
         } catch (\Throwable $e) {
-            $syslogErrors = "Błąd SSH: " . $e->getMessage();
+            $syslogErrors = 'Błąd SSH: '.$e->getMessage();
         }
 
         // ============================================================
-        // 3. AMAVIS (spam)
+        // 3. KONTA POCZTOWE (log operacji na serwerze poczty)
+        // ============================================================
+        $mailAccountLog = [];
+        $mailAccountLogError = null;
+        try {
+            // `|| true` na końcu: brak pliku (lub brak prawa odczytu) nie może wyłożyć
+            // panelu błędem SSH — w takim wypadku pokazujemy pusty stan.
+            $mailLogRaw = $this->ssh->run('tail -n '.self::MAIL_LOG_TAIL_LINES.' /var/log/konta.log 2>/dev/null || true');
+            $mailAccountLog = $this->parseMailAccountLog($mailLogRaw);
+        } catch (\Throwable $e) {
+            $mailAccountLogError = 'Błąd SSH: '.$e->getMessage();
+        }
+
+        // ============================================================
+        // 4. AMAVIS (spam)
         // ============================================================
         $amavisSpam = 'Brak wpisów SPAM w amavis.log';
         try {
@@ -103,29 +123,29 @@ class DashboardController extends Controller
                     $recipient = $emailMatches[1][1] ?? 'N/D';
 
                     $timestamp = trim(substr($line, 0, 19));
-                    $entryKey = $timestamp . '-' . $ip . '-' . $sender;
+                    $entryKey = $timestamp.'-'.$ip.'-'.$sender;
 
-                    if (!isset($parsedAmavis[$entryKey])) {
+                    if (! isset($parsedAmavis[$entryKey])) {
                         $parsedAmavis[$entryKey] = "Czas: {$timestamp} | IP: {$ip}\nOd: {$sender}\nDo: {$recipient}";
                     }
                 }
             }
 
-            if (!empty($parsedAmavis)) {
+            if (! empty($parsedAmavis)) {
                 $amavisSpam = implode("\n----------------------------------------\n", array_slice(array_values($parsedAmavis), 0, 15));
             }
         } catch (\Throwable $e) {
-            $amavisSpam = "Błąd SSH: " . $e->getMessage();
+            $amavisSpam = 'Błąd SSH: '.$e->getMessage();
         }
 
         // ============================================================
-        // 4. FAIL2BAN (z bazy danych)
+        // 5. FAIL2BAN (z bazy danych)
         // ============================================================
         $fail2banStats = [
-            'active_bans'      => Fail2banIpStat::where('currently_banned', true)->count(),
-            'total_ips'        => Fail2banIpStat::count(),
+            'active_bans' => Fail2banIpStat::where('currently_banned', true)->count(),
+            'total_ips' => Fail2banIpStat::count(),
             'fortigate_banned' => Fail2banIpStat::where('fortigate_banned', true)->count(),
-            'bans_24h'         => Fail2banBan::where('banned_at', '>=', now()->subDay())->count(),
+            'bans_24h' => Fail2banBan::where('banned_at', '>=', now()->subDay())->count(),
         ];
 
         // Top 5 recydywistów — przekształcone na tablice z datą jako string
@@ -135,12 +155,12 @@ class DashboardController extends Controller
             ->orderByDesc('last_banned_at')
             ->limit(5)
             ->get(['ip', 'total_bans', 'last_banned_at', 'currently_banned', 'jails', 'fortigate_banned'])
-            ->map(fn($o) => [
-                'ip'               => $o->ip,
-                'total_bans'       => $o->total_bans,
-                'last_banned_at'   => $o->last_banned_at?->format('Y-m-d H:i'),
+            ->map(fn ($o) => [
+                'ip' => $o->ip,
+                'total_bans' => $o->total_bans,
+                'last_banned_at' => $o->last_banned_at?->format('Y-m-d H:i'),
                 'currently_banned' => (bool) $o->currently_banned,
-                'jails'            => $o->jails ?? [],
+                'jails' => $o->jails ?? [],
                 'fortigate_banned' => (bool) $o->fortigate_banned,
             ])
             ->toArray();
@@ -150,37 +170,100 @@ class DashboardController extends Controller
             ->orderByDesc('banned_at')
             ->limit(10)
             ->get(['ip', 'jail', 'banned_at', 'unbanned_at'])
-            ->map(fn($b) => [
-                'ip'          => $b->ip,
-                'jail'        => $b->jail,
-                'banned_at'   => $b->banned_at?->format('Y-m-d H:i:s'),
+            ->map(fn ($b) => [
+                'ip' => $b->ip,
+                'jail' => $b->jail,
+                'banned_at' => $b->banned_at?->format('Y-m-d H:i:s'),
                 'unbanned_at' => $b->unbanned_at?->format('H:i:s'),
             ])
             ->toArray();
 
         // ============================================================
-        // 5. ZWRÓCENIE DANYCH
+        // 6. ZWRÓCENIE DANYCH
         // ============================================================
         // Okno retencji — etykiety liczników per IP (top recydywistów liczy total_bans)
         $retentionDays = (int) config('fail2ban.retention_days');
 
         $machineInfo = [
-            'hostname'  => $hostname,
-            'os'        => $osName,
+            'hostname' => $hostname,
+            'os' => $osName,
             'cpu_model' => $cpuModel,
             'cpu_cores' => $cpuCores,
-            'ram'       => $ramInfo,
-            'disk'      => $diskInfo,
+            'ram' => $ramInfo,
+            'disk' => $diskInfo,
         ];
 
         return compact(
             'machineInfo',
             'syslogErrors',
+            'mailAccountLog',
+            'mailAccountLogError',
             'amavisSpam',
             'fail2banStats',
             'topRepeatOffenders',
             'recentBans',
             'retentionDays'
         );
+    }
+
+    /**
+     * Parsuje log operacji na kontach pocztowych (`/var/log/konta.log`).
+     *
+     * Plik zawiera także wpisy o aliasach i uprawnieniach nadawców — te linie
+     * celowo pomijamy, panel pokazuje wyłącznie operacje na kontach. Pojedynczy
+     * wpis to blok `=== START TWORZENIA|AKTUALIZACJI|USUWANIA KONTA: login (data) ===`
+     * wraz z należącymi do niego krokami `-->`. Output operacji jest dopisywany do
+     * pliku już po linii `=== KONIEC ... KONTA ===`, dlatego ona nie zamyka wpisu.
+     *
+     * @return array<int, array{action: string, login: string, date: string, steps: array<int, string>}>
+     */
+    private function parseMailAccountLog(string $raw): array
+    {
+        /** @var array<string, string> $actions */
+        $actions = [
+            'TWORZENIA' => 'Utworzenie',
+            'AKTUALIZACJI' => 'Aktualizacja',
+            'USUWANIA' => 'Usunięcie',
+        ];
+
+        $entries = [];
+        $currentEntry = null;
+
+        foreach (explode("\n", $raw) as $line) {
+            $line = trim($line);
+
+            if ($line === '') {
+                continue;
+            }
+
+            if (preg_match('/^=== START (TWORZENIA|AKTUALIZACJI|USUWANIA) KONTA: (\S+) \((.+)\) ===$/', $line, $matches) === 1) {
+                $entries[] = [
+                    'action' => $actions[$matches[1]],
+                    'login' => $matches[2],
+                    'date' => $matches[3],
+                    'steps' => [],
+                ];
+                $currentEntry = array_key_last($entries);
+
+                continue;
+            }
+
+            if (str_starts_with($line, '===')) {
+                // Linia `=== KONIEC ... KONTA ===` nie zamyka wpisu (patrz PHPDoc).
+                if (preg_match('/^=== KONIEC (?:TWORZENIA|AKTUALIZACJI|USUWANIA) KONTA ===$/', $line) !== 1) {
+                    // Wpis innego typu (alias, uprawnienie nadawcy) — zamyka bieżący blok.
+                    $currentEntry = null;
+                }
+
+                continue;
+            }
+
+            if ($currentEntry !== null && str_starts_with($line, '-->')) {
+                $entries[$currentEntry]['steps'][] = trim(substr($line, 3));
+            }
+        }
+
+        // Najnowsze wpisy na górze: box ma stałą wysokość i nie przewijamy go automatycznie.
+        return array_slice(array_reverse($entries), 0, self::MAIL_LOG_MAX_ENTRIES);
     }
 }
