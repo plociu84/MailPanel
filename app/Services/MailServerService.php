@@ -46,6 +46,33 @@ class MailServerService
     }
 
     /**
+     * Weryfikuje klucz wpisu mapy Postfixa (lewa kolumna pliku).
+     *
+     * Klucz nie może zawierać białych ani sterujących znaków — plik mapy jest
+     * zapisywany w całości, więc nowa linia w kluczu dopisałaby dodatkowy wpis
+     * (albo zepsuła tabelę przed `postmap`).
+     */
+    private function assertSafeMapKey(string $key, string $label): void
+    {
+        if ($key === '' || preg_match('/[\x00-\x1F\x7F\s]/', $key) === 1) {
+            throw new Exception("Nieprawidłowa wartość pola {$label}: '{$key}' — dozwolone są tylko znaki bez białych znaków i znaków sterujących.");
+        }
+    }
+
+    /**
+     * Weryfikuje wartość wpisu mapy Postfixa (prawa kolumna pliku).
+     *
+     * Spacje są dozwolone (np. `rafalbielawski, kadrytelmor`), ale znaki
+     * sterujące już nie — rozbiłyby wpis na dodatkowe linie pliku.
+     */
+    private function assertSafeMapValue(string $value, string $label): void
+    {
+        if (preg_match('/[\x00-\x1F\x7F]/', $value) === 1) {
+            throw new Exception("Nieprawidłowa wartość pola {$label} — znaki sterujące są niedozwolone.");
+        }
+    }
+
+    /**
      * Maskuje sekrety w tekście przeznaczonym do logu.
      *
      * @param  array<int, string>  $secrets
@@ -97,6 +124,23 @@ class MailServerService
     private function sqlLiteral(string $value): string
     {
         return "'".str_replace(['\\', "'"], ['\\\\', "''"], $value)."'";
+    }
+
+    /**
+     * Buduje polecenie dopisujące wpis do /var/log/konta.log na zdalnym hoście.
+     *
+     * Komunikaty zawierają wartości podane w panelu (alias, nadawca, odbiorca),
+     * dlatego cała treść jest cytowana przez escapeshellarg() — wcześniej surowa
+     * interpolacja w `echo '...'` pozwalała na wstrzyknięcie poleceń powłoki.
+     * Znaki sterujące są zamieniane na spacje, aby nie dało się sfałszować wpisu
+     * w logu (wielolinijkowy komunikat rozjechałby też pojedynczą linię skryptu).
+     */
+    private function logLineCommand(string $logMessage): string
+    {
+        $normalized = (string) preg_replace('/[\x00-\x1F\x7F]+/', ' ', $logMessage);
+        $logLine = '=== '.$normalized.' ('.date('Y-m-d H:i:s').') ===';
+
+        return sprintf("echo %s >> /var/log/konta.log;\n", escapeshellarg($logLine));
     }
 
     public function getRoundcubeUsers(): array
@@ -332,6 +376,9 @@ class MailServerService
         $alias = trim($alias);
         $destination = trim($destination);
 
+        $this->assertSafeMapKey($alias, 'alias');
+        $this->assertSafeMapValue($destination, 'destination');
+
         $raw = $this->execute('cat /etc/postfix/valiastable');
         $lines = explode("\n", $raw);
 
@@ -348,6 +395,10 @@ class MailServerService
         $oldAlias = trim($oldAlias);
         $newAlias = trim($newAlias);
         $destination = trim($destination);
+
+        $this->assertSafeMapKey($oldAlias, 'old_alias');
+        $this->assertSafeMapKey($newAlias, 'alias');
+        $this->assertSafeMapValue($destination, 'destination');
 
         $raw = $this->execute('cat /etc/postfix/valiastable');
         $lines = explode("\n", $raw);
@@ -417,7 +468,7 @@ class MailServerService
     {
         $base64Content = base64_encode($content);
 
-        $script = sprintf("echo '=== %s (%s) ===' >> /var/log/konta.log;\n", $logMessage, date('Y-m-d H:i:s'));
+        $script = $this->logLineCommand($logMessage);
         $script .= "cp /etc/postfix/valiastable /etc/postfix/valiastable.bak;\n";
         $script .= sprintf("echo %s | base64 -d > /etc/postfix/valiastable;\n", escapeshellarg($base64Content));
         $script .= "postmap /etc/postfix/valiastable 2>&1;\n";
@@ -459,6 +510,9 @@ class MailServerService
         $sender = trim($sender);
         $allowedLogins = trim($allowedLogins);
 
+        $this->assertSafeMapKey($sender, 'sender');
+        $this->assertSafeMapValue($allowedLogins, 'allowed_logins');
+
         $raw = $this->execute('cat /etc/postfix/vsendertable');
         $lines = explode("\n", $raw);
 
@@ -475,6 +529,10 @@ class MailServerService
         $oldSender = trim($oldSender);
         $newSender = trim($newSender);
         $allowedLogins = trim($allowedLogins);
+
+        $this->assertSafeMapKey($oldSender, 'old_sender');
+        $this->assertSafeMapKey($newSender, 'sender');
+        $this->assertSafeMapValue($allowedLogins, 'allowed_logins');
 
         $raw = $this->execute('cat /etc/postfix/vsendertable');
         $lines = explode("\n", $raw);
@@ -544,7 +602,7 @@ class MailServerService
     {
         $base64Content = base64_encode($content);
 
-        $script = sprintf("echo '=== %s (%s) ===' >> /var/log/konta.log;\n", $logMessage, date('Y-m-d H:i:s'));
+        $script = $this->logLineCommand($logMessage);
         $script .= "cp /etc/postfix/vsendertable /etc/postfix/vsendertable.bak;\n";
         $script .= sprintf("echo %s | base64 -d > /etc/postfix/vsendertable;\n", escapeshellarg($base64Content));
         $script .= "postmap /etc/postfix/vsendertable 2>&1;\n";
@@ -586,6 +644,9 @@ class MailServerService
         $recipient = trim($recipient);
         $action = trim($action);
 
+        $this->assertSafeMapKey($recipient, 'recipient');
+        $this->assertSafeMapValue($action, 'action');
+
         $raw = $this->execute('cat /etc/postfix/internal_rcpts_only');
         $lines = explode("\n", $raw);
 
@@ -602,6 +663,10 @@ class MailServerService
         $oldRecipient = trim($oldRecipient);
         $newRecipient = trim($newRecipient);
         $action = trim($action);
+
+        $this->assertSafeMapKey($oldRecipient, 'old_recipient');
+        $this->assertSafeMapKey($newRecipient, 'recipient');
+        $this->assertSafeMapValue($action, 'action');
 
         $raw = $this->execute('cat /etc/postfix/internal_rcpts_only');
         $lines = explode("\n", $raw);
@@ -671,7 +736,7 @@ class MailServerService
     {
         $base64Content = base64_encode($content);
 
-        $script = sprintf("echo '=== %s (%s) ===' >> /var/log/konta.log;\n", $logMessage, date('Y-m-d H:i:s'));
+        $script = $this->logLineCommand($logMessage);
         $script .= "cp /etc/postfix/internal_rcpts_only /etc/postfix/internal_rcpts_only.bak;\n";
         $script .= sprintf("echo %s | base64 -d > /etc/postfix/internal_rcpts_only;\n", escapeshellarg($base64Content));
         $script .= "postmap /etc/postfix/internal_rcpts_only 2>&1;\n";
