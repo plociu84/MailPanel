@@ -42,13 +42,17 @@ class Fail2banController extends Controller
 
         $jails = Fail2banJail::orderBy('name')->get();
 
+        // Feed FortiGate czytamy dokładnie raz na żądanie — licznik w kartach
+        // i w zakładce „Lista IP” oraz eksport .txt dzielą ten sam odczyt pliku.
+        $feedIps            = $feed->all();
+        $fortigateFeedCount = count($feedIps);
+
         $stats = [
             'currently_banned' => Fail2banIpStat::where('currently_banned', true)->count(),
             'total_ips'        => Fail2banIpStat::count(),
             'bans_last_24h'    => Fail2banBan::where('banned_at', '>=', now()->subDay())->count(),
             'bans_last_7d'     => Fail2banBan::where('banned_at', '>=', now()->subWeek())->count(),
             'fortigate_banned' => Fail2banIpStat::where('fortigate_banned', true)->count(),
-            'fortigate_feed_count' => count($feed->all()),
         ];
 
         // Parametry zachowywane w linkach paginacji (wspólne filtry)
@@ -188,9 +192,8 @@ class Fail2banController extends Controller
             }, $filename, ['Content-Type' => 'text/plain']);
         }
 
-        // 7. Opcjonalny podgląd feedu FortiGate (pobranie aktualnego pliku)
+        // 7. Opcjonalne pobranie feedu FortiGate — ten sam odczyt co licznik wyżej
         if ($request->boolean('download_feed')) {
-            $feedIps = $feed->all();
             $filename = 'fortigate-f2b-feed-' . now()->format('Ymd-His') . '.txt';
 
             return response()->streamDownload(function () use ($feedIps) {
@@ -198,10 +201,7 @@ class Fail2banController extends Controller
             }, $filename, ['Content-Type' => 'text/plain']);
         }
 
-        // 8. Informacja o liczbie wpisów w feedzie FortiGate
-        $fortigateFeedCount = count($feed->all());
-
-        // 9. Okno retencji — jedno źródło prawdy dla etykiet w zakładkach
+        // 8. Okno retencji — jedno źródło prawdy dla etykiet w zakładkach
         //    (liczniki per IP: total_bans, first_banned_at, jails liczą tylko bany z tego okna)
         $retentionDays = (int) config('fail2ban.retention_days');
 

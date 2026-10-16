@@ -7,7 +7,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Fail2banController;
 use App\Http\Controllers\AmavisController;
 use App\Http\Controllers\UserManagementController;
-use App\Services\MailServerService;
 use App\Http\Controllers\RustdeskDeviceController;
 
 // Trasy publiczne (Uwierzytelnianie)
@@ -74,15 +73,6 @@ Route::middleware(['admin.auth'])->group(function () {
     // ============================================================
     // ZARZĄDZANIE UŻYTKOWNIKAMI POCZTY (Roundcube / Cyrus)
     // ============================================================
-
-    // API JSON użytkowników poczty
-    Route::get('/mail-users-json', function (MailServerService $mailService) {
-        try {
-            return response()->json($mailService->getRoundcubeUsers());
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    });
 
     // Zarządzanie użytkownikami poczty
     Route::get('/mail-users', [MailUserController::class, 'index'])->name('mail-users.index');
