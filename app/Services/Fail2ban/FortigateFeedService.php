@@ -113,14 +113,6 @@ class FortigateFeedService
         return count($this->withLock(fn (): array => [$ips, true]));
     }
 
-    /**
-     * @return string[]
-     */
-    public function missing(): array
-    {
-        return [];
-    }
-
     // ----------------------------------------------------------------
 
     /**
