@@ -9,5 +9,6 @@ Poniższe reguły obowiązują w całym repozytorium `panel-poczta`. Przed edycj
 | `**/*` | `escape-hatch.md` | Wzorzec „zmierzyć, nie zgadywać" dla typowych zadań edycyjnych |
 | `config/**` | `escape-hatch.md` | Szczególny nacisk na pliki konfiguracyjne |
 | `app/Services/**` | `escape-hatch.md` | Szczególny nacisk na serwisy |
+| `resources/views/**` | `views.md` | Assety statyczne z `public/assets` (zero CDN), brak kroku build |
 
 

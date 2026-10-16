@@ -7,6 +7,16 @@ use Illuminate\Http\Request;
 
 class InternalRcptController extends Controller
 {
+    /**
+     * Dozwolone akcje wpisu pliku /etc/postfix/internal_rcpts_only.
+     *
+     * Plik jest mapą dostępu Postfixa (main.cf: `check_recipient_access hash:/etc/postfix/internal_rcpts_only`),
+     * więc prawa kolumna to nazwa klasy restrykcji z `smtpd_restriction_classes`.
+     * Panel tworzy wyłącznie wpisy blokujące odbiór poczty ze świata — inne wartości
+     * (np. `OK`, `REJECT`) są odrzucane, żeby nie nadpisać blokady przypadkiem.
+     */
+    private const ACTION_RULES = 'in:banned_from_world';
+
     public function index(MailServerService $mailService)
     {
         try {
@@ -23,7 +33,7 @@ class InternalRcptController extends Controller
     {
         $validated = $request->validate([
             'recipient' => 'required|'.self::MAP_KEY_RULES.'|max:191',
-            'action' => 'nullable|'.self::MAP_VALUE_RULES.'|max:191',
+            'action' => 'nullable|'.self::ACTION_RULES,
         ]);
 
         $action = $validated['action'] ?? 'banned_from_world';
@@ -45,7 +55,7 @@ class InternalRcptController extends Controller
         $validated = $request->validate([
             'old_recipient' => 'required|'.self::MAP_KEY_RULES,
             'recipient' => 'required|'.self::MAP_KEY_RULES.'|max:191',
-            'action' => 'nullable|'.self::MAP_VALUE_RULES.'|max:191',
+            'action' => 'nullable|'.self::ACTION_RULES,
         ]);
 
         $action = $validated['action'] ?? 'banned_from_world';

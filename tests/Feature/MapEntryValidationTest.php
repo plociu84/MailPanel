@@ -120,6 +120,61 @@ class MapEntryValidationTest extends TestCase
     }
 
     /**
+     * Prawa kolumna internal_rcpts_only to nazwa klasy restrykcji Postfixa.
+     *
+     * Panel ma tworzyć wyłącznie wpisy blokujące (`banned_from_world`), dlatego
+     * każda inna wartość — także legalna dla Postfixa akcja typu `OK` — jest
+     * odrzucana, zanim cokolwiek trafi na serwer poczty.
+     */
+    public function test_internal_rcpt_action_outside_whitelist_is_rejected(): void
+    {
+        // Mock bez oczekiwań: brak wywołania serwisu to dowód, że walidacja zadziałała.
+        $this->app->instance(MailServerService::class, Mockery::mock(MailServerService::class));
+
+        $rejectedActions = ['OK', 'REJECT', 'banned_from_world extra', 'wew.'];
+
+        foreach ($rejectedActions as $action) {
+            $this->from('/internal-rcpts')
+                ->withoutMiddleware(self::BYPASSED_MIDDLEWARE)
+                ->post('/internal-rcpts', ['recipient' => 'pomoc@', 'action' => $action])
+                ->assertSessionHasErrors('action');
+
+            $this->from('/internal-rcpts')
+                ->withoutMiddleware(self::BYPASSED_MIDDLEWARE)
+                ->put('/internal-rcpts', ['old_recipient' => 'pomoc@', 'recipient' => 'pomoc@', 'action' => $action])
+                ->assertSessionHasErrors('action');
+        }
+    }
+
+    /**
+     * Brak pola `action` w żądaniu (albo pusta wartość) oznacza domyślną blokadę.
+     */
+    public function test_internal_rcpt_action_defaults_to_blocking_world_mail(): void
+    {
+        $mailService = Mockery::mock(MailServerService::class);
+        $mailService->shouldReceive('addInternalRcpt')
+            ->once()
+            ->with('kadry@', 'banned_from_world')
+            ->andReturn('log serwera');
+        $mailService->shouldReceive('updateInternalRcpt')
+            ->once()
+            ->with('kadry@', 'kadry@', 'banned_from_world')
+            ->andReturn('log serwera');
+
+        $this->app->instance(MailServerService::class, $mailService);
+
+        $this->withoutMiddleware(self::BYPASSED_MIDDLEWARE)
+            ->post('/internal-rcpts', ['recipient' => 'kadry@'])
+            ->assertRedirect('/internal-rcpts')
+            ->assertSessionHasNoErrors();
+
+        $this->withoutMiddleware(self::BYPASSED_MIDDLEWARE)
+            ->put('/internal-rcpts', ['old_recipient' => 'kadry@', 'recipient' => 'kadry@', 'action' => ''])
+            ->assertRedirect('/internal-rcpts')
+            ->assertSessionHasNoErrors();
+    }
+
+    /**
      * Żądania z niedozwolonymi znakami w kluczu lub wartości wpisu: adres URL,
      * ładunek formularza i pole, które ma zwrócić błąd walidacji.
      *
