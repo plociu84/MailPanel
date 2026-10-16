@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\Admin;
+use App\Models\Fail2banIpStat;
 use App\Services\Fail2ban\FortigateFeedService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
@@ -55,6 +56,36 @@ class Fail2banFortigateFeedReadTest extends TestCase
         $response->assertOk();
         $this->assertStringContainsString('text/plain', (string) $response->headers->get('content-type'));
         $this->assertSame("198.51.100.7\n203.0.113.4", $response->streamedContent());
+    }
+
+    public function test_feed_sync_writes_the_feed_without_reading_it_back(): void
+    {
+        $feed = Mockery::mock(FortigateFeedService::class);
+        $feed->shouldReceive('replaceAll')
+            ->once()
+            ->with(Mockery::on(static function (array $ips): bool {
+                sort($ips);
+
+                return $ips === ['198.51.100.7', '203.0.113.4'];
+            }))
+            ->andReturn(2);
+        // Sedno regresji: liczba wpisów pochodzi ze zwrotki replaceAll,
+        // więc kontroler nie czyta pliku drugi raz po jego zapisaniu.
+        $feed->shouldReceive('all')->never();
+
+        $this->app->instance(FortigateFeedService::class, $feed);
+
+        Fail2banIpStat::create(['ip' => '198.51.100.7', 'fortigate_banned' => true]);
+        Fail2banIpStat::create(['ip' => '203.0.113.4', 'fortigate_banned' => true]);
+        Fail2banIpStat::create(['ip' => '198.51.100.9', 'fortigate_banned' => false]);
+
+        $response = $this->actingAs($this->admin(), 'admin')
+            ->post('/fail2ban/fortigate-feed/sync');
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('count', 2);
+        $response->assertJsonPath('message', 'Zsynchronizowano feed FortiGate (2 IP).');
     }
 
     private function admin(): Admin

@@ -339,12 +339,14 @@ class Fail2banController extends Controller
                 ->pluck('ip')
                 ->all();
 
-            $feed->replaceAll($ips);
+            // replaceAll() zwraca liczbę adresów realnie zapisanych w pliku
+            // (po walidacji i deduplikacji), więc feed nie jest czytany drugi raz.
+            $written = $feed->replaceAll($ips);
 
             return response()->json([
                 'success' => true,
-                'count'   => count($feed->all()),
-                'message' => 'Zsynchronizowano feed FortiGate (' . count($ips) . ' IP).',
+                'count'   => $written,
+                'message' => 'Zsynchronizowano feed FortiGate (' . $written . ' IP).',
             ]);
         } catch (\Throwable $e) {
             Log::error('Fortigate feed sync failed', ['error' => $e->getMessage()]);

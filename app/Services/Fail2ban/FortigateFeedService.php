@@ -94,17 +94,19 @@ class FortigateFeedService
     /**
      * Zastępuje całą zawartość pliku nową listą IP.
      *
+     * Zwraca liczbę adresów faktycznie zapisanych (po odfiltrowaniu
+     * niepoprawnych, usunięciu duplikatów i posortowaniu) — wołający zna
+     * wynik zapisu bez ponownego odczytu pliku z dysku.
+     *
      * @param  string[]  $ips
      */
-    public function replaceAll(array $ips): bool
+    public function replaceAll(array $ips): int
     {
-        $ips = array_filter(array_map('trim', $ips), fn ($v) => $this->isValidIp($v));
-        $ips = array_values(array_unique($ips));
-        $this->sortIps($ips);
+        $ips = $this->normalizeIps($ips);
 
-        return $this->withLock(function () use ($ips) {
-            return [$ips, true];
-        });
+        $this->withLock(fn () => [$ips, true]);
+
+        return count($ips);
     }
 
     /**
@@ -189,6 +191,21 @@ class FortigateFeedService
             // IPv6 — porównanie binarne
             return strcmp(inet_pton($a) ?: '', inet_pton($b) ?: '');
         });
+    }
+
+    /**
+     * Normalizuje listę IP: odfiltrowuje niepoprawne, usuwa duplikaty, sortuje.
+     *
+     * @param  string[]  $ips
+     * @return string[]
+     */
+    private function normalizeIps(array $ips): array
+    {
+        $ips = array_filter(array_map('trim', $ips), fn ($v) => $this->isValidIp($v));
+        $ips = array_values(array_unique($ips));
+        $this->sortIps($ips);
+
+        return $ips;
     }
 
     private function isValidIp(string $ip): bool
