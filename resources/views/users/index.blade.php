@@ -278,8 +278,8 @@
 
 @push('scripts')
 <!-- Ładowanie jQuery i Tablesorter -->
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/js/jquery.tablesorter.min.js"></script>
+<script src="{{ asset('assets/jquery/jquery-3.7.1.min.js') }}"></script>
+<script src="{{ asset('assets/tablesorter/jquery.tablesorter.min.js') }}"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {

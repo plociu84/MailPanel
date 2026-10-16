@@ -396,7 +396,7 @@
 @endpush
 
 @push('scripts')
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{{ asset('assets/jquery/jquery-3.7.1.min.js') }}"></script>
 <script>
 $(document).ready(function() {
     // Dodaj CSRF token do wszystkich żądań AJAX
