@@ -32,9 +32,12 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Stick to existing directory structure; don't create new base folders without approval.
 - Do not change the application's dependencies without approval.
 
-## Frontend Bundling
+## Frontend Assets
 
-- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `npm run build`, `npm run dev`, or `composer run dev`. Ask them.
+- There is **no build step and no bundler**: front-end libraries are static, versioned files in `public/assets/` (Bootstrap 5.3.2, FontAwesome 6.4.0, Tom Select 2.3.1, jQuery 3.7.1, jquery.tablesorter 2.31.3, self-hosted Inter woff2) referenced from views via `asset('assets/...')`.
+- Never add CDN `<link>`/`<script>` tags — the panel must work without internet access. To bump a library, download the pinned file into `public/assets/` and update the view that references it.
+- `package.json`, `vite.config.js`, `resources/css` and `resources/js` were removed on purpose; do not re-introduce a bundler without approval.
+- If the UI doesn't reflect a Blade change, run `php artisan view:clear` (no `npm run build` exists).
 
 ## Documentation Files
 
@@ -131,9 +134,9 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Faker: Use methods such as `$this->faker->word()` or `fake()->randomDigit()`. Follow existing conventions whether to use `$this->faker` or `fake()`.
 - When creating tests, make use of `php artisan make:test [options] {name}` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
 
-## Vite Error
+## Asset 404 / missing asset
 
-- If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
+- Assets are served directly from `public/assets/`; there is no manifest to build, so a "Vite manifest" error cannot occur. If an asset 404s, verify the file exists, that the `asset('assets/...')` path matches, and that it is readable by `www-data` (`chown -R www-data:www-data public/assets`).
 
 === pint/core rules ===
 
