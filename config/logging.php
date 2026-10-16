@@ -54,7 +54,9 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            // Domyślnie rotacja dzienna: fail2ban:tick loguje co minutę, więc jeden
+            // laravel.log rósł bez ograniczeń (6,7 MB w ~5 tygodni). Nadpisywalne przez LOG_STACK.
+            'channels' => explode(',', (string) env('LOG_STACK', 'daily')),
             'ignore_exceptions' => false,
         ],
 
