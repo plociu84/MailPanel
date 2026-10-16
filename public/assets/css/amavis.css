@@ -1,0 +1,74 @@
+/* Ikony w kartach – ten sam kolor co w menu */
+.icon-muted,
+i.icon-muted,
+i.icon-muted::before {
+    color: var(--icon-muted) !important;
+}
+
+/* Lista kwarantanny – spójne obramowania */
+#quarantineContainer .list-group-item {
+    background-color: transparent;
+    border-color: var(--border-soft-2);
+    padding: 0.75rem 0.5rem;
+}
+#quarantineContainer .list-group-item:last-child {
+    border-bottom: none;
+}
+
+/* ============================================================ */
+/* NAGŁÓWEK SEKCJI W KWARANTANNIE / SPAMMY                      */
+/* ============================================================ */
+.amavis-section-heading {
+    display: flex !important;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: var(--primary-color) !important;
+    color: #fff !important;
+    padding: 0.6rem 0.75rem !important;
+    margin: 0 !important;
+    font-weight: var(--font-weight-semibold) !important;
+    font-size: 0.9rem;
+    letter-spacing: 0.3px;
+}
+.amavis-section-heading i,
+.amavis-section-heading i::before {
+    color: #fff !important;
+}
+
+/* ============================================================ */
+/* IKONY AKCJI W LIŚCIE KWARANTANNY                            */
+/* ============================================================ */
+.amavis-actions .btn-link {
+    color: var(--icon-muted);
+    text-decoration: none;
+    border: none;
+    font-size: 0.9rem;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s ease-in-out;
+}
+.amavis-actions .btn-link:hover {
+    color: var(--primary-color);
+}
+
+/* Ikona kosza – awaryjnie, gdyby inline style został usunięty */
+.amavis-actions .btn-link .fa-trash {
+    color: #dc3545;
+}
+.amavis-actions .btn-link:hover .fa-trash {
+    color: #b02a37;
+}
+
+/* Modal – spójny wygląd nagłówków */
+#emailPreviewModal .card-header {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid var(--border-soft-2);
+    font-size: 0.875rem;
+}
+#emailPreviewModal .table {
+    font-size: 0.875rem;
+}
+#emailPreviewModal .table td {
+    padding: 0.5rem 0.75rem;
+    vertical-align: top;
+}

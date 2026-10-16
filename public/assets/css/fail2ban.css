@@ -1,0 +1,52 @@
+/* Sticky header tylko w modalach (nie w głównych tabelach) */
+.modal .table thead.sticky-top th {
+    background-color: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.06);
+}
+
+.tab-content table thead th {
+    cursor: default;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: var(--font-weight-medium);
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border-soft-2);
+    vertical-align: middle;
+    background-color: #fff;
+}
+.tab-content table tbody td {
+    font-size: 0.8rem;
+    padding: 0.55rem 0.75rem;
+    vertical-align: middle;
+}
+.tab-content table tbody tr {
+    line-height: 1.4;
+}
+
+.nav-tabs .nav-link {
+    color: var(--text-main);
+    font-weight: var(--font-weight-medium);
+    font-size: 0.875rem;
+    border: none;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+.nav-tabs .nav-link:hover {
+    color: var(--primary-color);
+    border-bottom-color: transparent;
+}
+.nav-tabs .nav-link.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    background-color: transparent;
+}
+
+.icon-muted,
+i.icon-muted,
+i.icon-muted::before {
+    color: var(--icon-muted) !important;
+}

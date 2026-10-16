@@ -175,13 +175,19 @@ class MailUserUpdateFlowTest extends TestCase
     }
 
     /**
-     * Sklejone źródła wszystkich widoków — modale wypełniane są w layoutcie.
+     * Sklejone źródła wszystkich widoków oraz wydzielonych plików JS
+     * z public/assets/js — część modali wypełniana jest globalnym skryptem
+     * panelu (assets/js/panel.js), a nie kodem inline w widoku.
      */
     private function javaScriptSources(): string
     {
         $source = '';
 
         foreach (File::allFiles(resource_path('views')) as $file) {
+            $source .= file_get_contents($file->getPathname());
+        }
+
+        foreach (File::allFiles(public_path('assets/js')) as $file) {
             $source .= file_get_contents($file->getPathname());
         }
 
