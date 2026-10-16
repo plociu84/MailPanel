@@ -8,9 +8,9 @@ use App\Services\Fail2ban\FortigateFeedService;
 use Tests\TestCase;
 
 /**
- * Kontrakt replaceAll(): po zapisie zwraca liczbę adresów faktycznie
- * umieszczonych w pliku, żeby wołający (sync feedu w panelu) nie musiał
- * czytać pliku drugi raz tylko po to, by ją poznać.
+ * Kontrakt metod zapisujących feed: po zapisie zwracają liczbę adresów
+ * umieszczonych w pliku (stan pliku po operacji), żeby wołający (panel)
+ * nie musiał czytać pliku drugi raz tylko po to, by ją poznać.
  *
  * Plik testowy leży w storage/framework/testing — test nie dotyka
  * produkcyjnego public/f2b-ips.txt.
@@ -56,6 +56,23 @@ class FortigateFeedServiceTest extends TestCase
         $this->assertSame(1, $this->feed->replaceAll(['198.51.100.7']));
 
         $this->assertSame(0, $this->feed->replaceAll([]));
+        $this->assertSame([], $this->feed->all());
+    }
+
+    public function test_add_and_remove_report_feed_size_after_the_operation(): void
+    {
+        $this->assertSame(1, $this->feed->add('198.51.100.7'));
+        $this->assertSame(2, $this->feed->add('198.51.100.9'));
+        $this->assertSame(['198.51.100.7', '198.51.100.9'], $this->feed->all());
+
+        // IP już jest w pliku: zapis pomijany, ale zwrotka nadal opisuje stan pliku.
+        $this->assertSame(2, $this->feed->add('198.51.100.7'));
+
+        $this->assertSame(1, $this->feed->remove('198.51.100.9'));
+        // IP nieobecny w pliku: plik bez zmian, licznik bez zmian.
+        $this->assertSame(1, $this->feed->remove('198.51.100.9'));
+        $this->assertSame(0, $this->feed->remove('198.51.100.7'));
+
         $this->assertSame([], $this->feed->all());
     }
 }

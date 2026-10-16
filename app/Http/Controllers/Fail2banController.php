@@ -296,13 +296,15 @@ class Fail2banController extends Controller
         $stat = Fail2banIpStat::where('ip', $ip)->firstOrFail();
 
         try {
+            // add() i remove() zwracają liczbę IP w pliku po operacji, więc
+            // odpowiedź nie wymaga już ponownego odczytu feedu.
             if ($stat->fortigate_banned) {
-                $feed->remove($ip);
+                $feedCount = $feed->remove($ip);
                 $stat->fortigate_banned    = false;
                 $stat->fortigate_banned_at = null;
                 $action = 'removed';
             } else {
-                $feed->add($ip);
+                $feedCount = $feed->add($ip);
                 $stat->fortigate_banned    = true;
                 $stat->fortigate_banned_at = now();
                 $action = 'added';
@@ -325,7 +327,7 @@ class Fail2banController extends Controller
             'action'              => $action,
             'fortigate_banned'    => $stat->fortigate_banned,
             'fortigate_banned_at' => $stat->fortigate_banned_at?->format('Y-m-d H:i:s'),
-            'feed_count'          => count($feed->all()),
+            'feed_count'          => $feedCount,
         ]);
     }
 

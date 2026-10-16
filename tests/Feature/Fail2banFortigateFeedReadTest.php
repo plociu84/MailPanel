@@ -88,6 +88,41 @@ class Fail2banFortigateFeedReadTest extends TestCase
         $response->assertJsonPath('message', 'Zsynchronizowano feed FortiGate (2 IP).');
     }
 
+    public function test_fortigate_toggle_reports_feed_count_without_reading_the_feed(): void
+    {
+        $feed = Mockery::mock(FortigateFeedService::class);
+        $feed->shouldReceive('add')->once()->with('198.51.100.7')->andReturn(2);
+        $feed->shouldReceive('remove')->once()->with('198.51.100.7')->andReturn(1);
+        // Sedno regresji: liczba wpisów wraca ze zwrotki add()/remove(),
+        // więc po zmianie feed nie jest czytany ani razu.
+        $feed->shouldReceive('all')->never();
+
+        $this->app->instance(FortigateFeedService::class, $feed);
+
+        $stat = Fail2banIpStat::create(['ip' => '198.51.100.7', 'fortigate_banned' => false]);
+        $admin = $this->admin();
+
+        $this->actingAs($admin, 'admin')
+            ->post('/fail2ban/ip/198.51.100.7/fortigate')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('action', 'added')
+            ->assertJsonPath('feed_count', 2);
+
+        $this->assertTrue($stat->refresh()->fortigate_banned);
+        $this->assertNotNull($stat->fortigate_banned_at);
+
+        $this->actingAs($admin, 'admin')
+            ->post('/fail2ban/ip/198.51.100.7/fortigate')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('action', 'removed')
+            ->assertJsonPath('feed_count', 1);
+
+        $this->assertFalse($stat->refresh()->fortigate_banned);
+        $this->assertNull($stat->fortigate_banned_at);
+    }
+
     private function admin(): Admin
     {
         return Admin::create([

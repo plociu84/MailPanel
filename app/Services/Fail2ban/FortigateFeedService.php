@@ -50,15 +50,18 @@ class FortigateFeedService
 
     /**
      * Dodaje IP do pliku (jeśli jeszcze go nie ma). Plik zawsze posortowany.
+     *
+     * Zwraca liczbę adresów w pliku po operacji — wołający nie musi czytać
+     * pliku ponownie, żeby ją poznać.
      */
-    public function add(string $ip): bool
+    public function add(string $ip): int
     {
         $ip = trim($ip);
         if (! $this->isValidIp($ip)) {
             throw new RuntimeException("Nieprawidłowy adres IP: {$ip}");
         }
 
-        return $this->withLock(function (array $ips) use ($ip) {
+        return count($this->withLock(function (array $ips) use ($ip): array {
             if (in_array($ip, $ips, true)) {
                 return [$ips, false]; // już istnieje — nic nie zmieniaj
             }
@@ -67,17 +70,20 @@ class FortigateFeedService
             $this->sortIps($ips);
 
             return [$ips, true];
-        });
+        }));
     }
 
     /**
      * Usuwa IP z pliku. Plik zawsze posortowany.
+     *
+     * Zwraca liczbę adresów w pliku po operacji — wołający nie musi czytać
+     * pliku ponownie, żeby ją poznać.
      */
-    public function remove(string $ip): bool
+    public function remove(string $ip): int
     {
         $ip = trim($ip);
 
-        return $this->withLock(function (array $ips) use ($ip) {
+        return count($this->withLock(function (array $ips) use ($ip): array {
             $before = count($ips);
             $ips = array_values(array_filter($ips, fn ($v) => $v !== $ip));
 
@@ -88,7 +94,7 @@ class FortigateFeedService
             $this->sortIps($ips);
 
             return [$ips, true];
-        });
+        }));
     }
 
     /**
@@ -104,9 +110,7 @@ class FortigateFeedService
     {
         $ips = $this->normalizeIps($ips);
 
-        $this->withLock(fn () => [$ips, true]);
-
-        return count($ips);
+        return count($this->withLock(fn (): array => [$ips, true]));
     }
 
     /**
@@ -122,9 +126,13 @@ class FortigateFeedService
     /**
      * Wykonuje operację pod blokadą pliku, potem zapisuje posortowaną listę.
      *
+     * Zwraca stan pliku po operacji (listę IP), więc wołający nie czyta pliku
+     * ponownie — ani po to, by policzyć wpisy, ani by poznać zawartość.
+     *
      * @param  callable  $callback  fn(array $ips): array{0: string[], 1: bool}
+     * @return string[]
      */
-    private function withLock(callable $callback): bool
+    private function withLock(callable $callback): array
     {
         $dir = dirname($this->path);
         if (! is_dir($dir) && ! mkdir($dir, 0755, true) && ! is_dir($dir)) {
@@ -135,6 +143,8 @@ class FortigateFeedService
         if ($handle === false) {
             throw new RuntimeException("Nie mogę otworzyć pliku: {$this->path}");
         }
+
+        $newIps = [];
 
         try {
             if (! flock($handle, LOCK_EX)) {
@@ -165,7 +175,7 @@ class FortigateFeedService
             fclose($handle);
         }
 
-        return true;
+        return $newIps;
     }
 
     /**
