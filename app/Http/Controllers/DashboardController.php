@@ -161,6 +161,9 @@ class DashboardController extends Controller
         // ============================================================
         // 5. ZWRÓCENIE DANYCH
         // ============================================================
+        // Okno retencji — etykiety liczników per IP (top recydywistów liczy total_bans)
+        $retentionDays = (int) config('fail2ban.retention_days');
+
         $machineInfo = [
             'hostname'  => $hostname,
             'os'        => $osName,
@@ -176,7 +179,8 @@ class DashboardController extends Controller
             'amavisSpam',
             'fail2banStats',
             'topRepeatOffenders',
-            'recentBans'
+            'recentBans',
+            'retentionDays'
         );
     }
 }

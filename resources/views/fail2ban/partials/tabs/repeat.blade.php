@@ -9,8 +9,8 @@
                                 <th>#</th>
                                 <th>IP</th>
                                 <th>Jail(e)</th>
-                                <th class="text-center">Razy banowany</th>
-                                <th>Pierwszy ban</th>
+                                <th class="text-center">Razy banowany <span class="text-muted fw-normal">({{ $retentionDays }} dni)</span></th>
+                                <th title="Najstarszy ban mieszczący się w oknie retencji ({{ $retentionDays }} dni)">Pierwszy ban w oknie</th>
                                 <th>Ostatni ban</th>
                                 <th>Status</th>
                                 <th class="text-end">Akcje</th>
@@ -60,7 +60,7 @@
                                         @if($search !== '')
                                             Brak recydywistów pasujących do „{{ $search }}”.
                                         @else
-                                            Brak recydywistów (wszyscy zablokowani na FortiGate).
+                                            Brak recydywistów w oknie {{ $retentionDays }} dni (wszyscy zablokowani na FortiGate).
                                         @endif
                                     </td>
                                 </tr>

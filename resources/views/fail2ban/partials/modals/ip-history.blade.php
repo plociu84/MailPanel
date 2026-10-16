@@ -8,6 +8,11 @@
             </div>
             <div class="modal-body">
                 <div id="histSummary" class="mb-3"></div>
+                <div class="small text-muted mb-2">
+                    <i class="fa-solid fa-circle-info me-1"></i>
+                    Lista obejmuje bany z okna retencji ({{ $retentionDays }} dni) — starsze wpisy usuwa
+                    <code>fail2ban:prune</code>. Notatka i flaga FortiGate nie podlegają czyszczeniu.
+                </div>
                 <div id="histTableWrapper">
                     <table class="table table-sm table-condensed table-hover align-middle mb-0">
                         <thead>

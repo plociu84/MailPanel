@@ -133,7 +133,7 @@
                     <div style="height: 500px !important; overflow-y: auto; background-color: #1e1e2e; color: #cdd6f4; border: 1px solid #313244; font-family: Consolas, Monaco, monospace; font-size: 0.82rem; padding: 15px; border-radius: 6px; line-height: 1.6; scrollbar-width: thin; scrollbar-color: #45475a #181825;">
 
                         <div class="mb-3" style="color: #f9e2af; font-weight: 600; font-size: 0.9rem;">
-                            <i class="fa-solid fa-repeat me-1"></i> TOP 5 RECYDYWIŚCI
+                            <i class="fa-solid fa-repeat me-1"></i> TOP 5 RECYDYWIŚCI ({{ $retentionDays }} DNI)
                         </div>
 
                         @forelse($topRepeatOffenders as $offender)

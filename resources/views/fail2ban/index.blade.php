@@ -36,6 +36,7 @@
     window.F2B = {
         csrf: '{{ csrf_token() }}',
         activeTab: '{{ $activeTab }}',
+        retentionDays: {{ (int) $retentionDays }},
         routes: {
             refresh: '{{ route('fail2ban.refresh') }}',
             status: '{{ route('fail2ban.status') }}',

@@ -201,11 +201,15 @@ class Fail2banController extends Controller
         // 8. Informacja o liczbie wpisów w feedzie FortiGate
         $fortigateFeedCount = count($feed->all());
 
+        // 9. Okno retencji — jedno źródło prawdy dla etykiet w zakładkach
+        //    (liczniki per IP: total_bans, first_banned_at, jails liczą tylko bany z tego okna)
+        $retentionDays = (int) config('fail2ban.retention_days');
+
         return view('fail2ban.index', compact(
             'jails', 'selectedJail', 'statusFilter', 'dateFilter',
             'minBans', 'search', 'stats', 'activeBans',
             'historyIps', 'repeatOffenders', 'fortigateBlocked', 'recentEvents',
-            'activeTab', 'listBans', 'ipList', 'fortigateFeedCount'
+            'activeTab', 'listBans', 'ipList', 'fortigateFeedCount', 'retentionDays'
         ));
     }
 

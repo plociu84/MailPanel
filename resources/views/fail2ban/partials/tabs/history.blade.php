@@ -8,7 +8,7 @@
                             <tr>
                                 <th>IP</th>
                                 <th>Jail</th>
-                                <th class="text-center">Razy</th>
+                                <th class="text-center">Razy <span class="text-muted fw-normal">({{ $retentionDays }} dni)</span></th>
                                 <th>Ostatni ban</th>
                                 <th>Ostatni unban</th>
                                 <th>Notatka</th>
@@ -63,7 +63,7 @@
                                         @if($search !== '')
                                             Brak historii pasujących do „{{ $search }}”.
                                         @else
-                                            Brak historii.
+                                            Brak banów w oknie ostatnich {{ $retentionDays }} dni.
                                         @endif
                                     </td>
                                 </tr>

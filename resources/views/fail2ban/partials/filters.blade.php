@@ -23,7 +23,7 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <label class="form-label small text-muted mb-1">Min. liczba banów</label>
+                <label class="form-label small text-muted mb-1">Min. liczba banów <span class="fw-normal">(okno {{ $retentionDays }} dni)</span></label>
                 <input type="number" id="filterMinBans" class="form-control form-control-sm"
                        value="{{ $minBans }}" min="0" step="1">
             </div>

@@ -21,3 +21,12 @@
         {{ number_format($stats['fortigate_banned']) }}
     </x-stat-card>
 </div>
+
+<!-- OKNO RETENCJI: doprecyzowanie liczników per IP -->
+<div class="small text-muted mb-3">
+    <i class="fa-solid fa-circle-info me-1"></i>
+    Liczniki per IP (<strong>Razy</strong>, <strong>Razy banowany</strong>, <strong>Pierwszy ban</strong>, <strong>Jaile</strong>)
+    liczą wyłącznie bany z ostatnich <strong>{{ $retentionDays }} dni</strong> — starsze usuwa retencja
+    (<code>fail2ban:prune</code>, codziennie 03:30). Same adresy IP zostają w bazie razem z notatkami
+    i blokadami FortiGate, więc po wyczyszczeniu historii licznik może pokazać <strong>0</strong>.
+</div>

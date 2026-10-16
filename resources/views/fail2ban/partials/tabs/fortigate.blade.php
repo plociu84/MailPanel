@@ -9,7 +9,7 @@
                                 <th>#</th>
                                 <th>IP</th>
                                 <th>Jail(e)</th>
-                                <th class="text-center">Razy banowany</th>
+                                <th class="text-center">Razy banowany <span class="text-muted fw-normal">({{ $retentionDays }} dni)</span></th>
                                 <th>Data blokady na Forti</th>
                                 <th>Notatka</th>
                                 <th class="text-end">Akcje</th>

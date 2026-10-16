@@ -11,7 +11,7 @@
                     <input type="hidden" name="tab" value="list">
 
                     <div class="col-md-3">
-                        <label class="form-label small text-muted mb-1">Min. liczba banów</label>
+                        <label class="form-label small text-muted mb-1">Min. liczba banów <span class="fw-normal">(okno {{ $retentionDays }} dni)</span></label>
                         <input type="number" name="list_bans" class="form-control form-control-sm"
                                value="{{ $listBans > 0 ? $listBans : 2 }}" min="2" step="1">
                     </div>
@@ -35,7 +35,7 @@
                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                         <div class="small text-muted">
                             <i class="fa-solid fa-repeat me-1"></i>
-                            Recydywiści z <strong>≥ {{ $listBans }}</strong> banami
+                            Recydywiści z <strong>≥ {{ $listBans }}</strong> banami w oknie {{ $retentionDays }} dni
                             @if($selectedJail !== 'all')
                                 w jailu <strong>{{ $selectedJail }}</strong>
                             @endif
@@ -71,7 +71,7 @@
                 @else
                     <div class="alert alert-secondary mb-0">
                         <i class="fa-solid fa-circle-info me-1"></i>
-                        Podaj minimalną liczbę banów (np. <strong>8</strong>), aby wyświetlić listę adresów IP recydywistów.
+                        Podaj minimalną liczbę banów w oknie ostatnich {{ $retentionDays }} dni (np. <strong>8</strong>), aby wyświetlić listę adresów IP recydywistów.
                     </div>
                 @endif
 

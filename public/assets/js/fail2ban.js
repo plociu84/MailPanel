@@ -200,6 +200,7 @@ function syncFeed() {
 }
 
 function showIpHistory(ip) {
+    const retentionDays = window.F2B.retentionDays || 30;
     document.getElementById('histIp').textContent = ip;
     document.getElementById('histTableBody').innerHTML = '<tr><td colspan="5" class="text-center text-muted">Ładowanie...</td></tr>';
     document.getElementById('histSummary').innerHTML = '';
@@ -212,7 +213,7 @@ function showIpHistory(ip) {
         .then(data => {
             let summary = `
                 <div class="d-flex gap-3 flex-wrap">
-                    <div><strong>Łącznie banów:</strong> <span class="badge bg-warning text-dark">${data.total_bans}×</span></div>
+                    <div><strong>Łącznie banów (${retentionDays} dni):</strong> <span class="badge bg-warning text-dark">${data.total_bans}×</span></div>
                     <div><strong>Jaile:</strong> ${(data.jails || []).map(j => `<span class="badge bg-secondary">${escapeHtml(j)}</span>`).join(' ')}</div>
                     <div><strong>FortiGate:</strong> ${data.fortigate_banned ? '<span class="badge bg-dark">TAK (' + escapeHtml(data.fortigate_banned_at || '') + ')</span>' : '<span class="badge bg-light text-muted">NIE</span>'}</div>
                 </div>
@@ -222,7 +223,7 @@ function showIpHistory(ip) {
 
             const tbody = document.getElementById('histTableBody');
             if (data.bans.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Brak wpisów.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Brak wpisów w oknie retencji (' + retentionDays + ' dni).</td></tr>';
                 return;
             }
             tbody.innerHTML = data.bans.map(b => `
