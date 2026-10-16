@@ -487,7 +487,6 @@ class MailServerServiceCommandSafetyTest extends TestCase
     private function invokeSqlLiteral(string $value): string
     {
         $method = new ReflectionMethod(MailServerService::class, 'sqlLiteral');
-        $method->setAccessible(true);
 
         $service = new MailServerService(Mockery::mock(Fail2banSshClient::class));
 
