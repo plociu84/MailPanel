@@ -10,8 +10,13 @@ use Symfony\Component\Process\Process;
 class Fail2banSshClient
 {
     private string $host;
+
     private string $sshKey;
+
     private string $sshUser;
+
+    /** Minimalna długość sekretu maskowanego w logach. */
+    private const MIN_REDACT_LENGTH = 4;
 
     private const BENIGN_STDERR_PATTERNS = [
         'Permanently added',
@@ -39,8 +44,8 @@ class Fail2banSshClient
         private int $connectTimeout = 10,
         private int $commandTimeout = 60,
     ) {
-        $this->host    = (string) config('services.ssh.host');
-        $this->sshKey  = (string) config('services.ssh.key');
+        $this->host = (string) config('services.ssh.host');
+        $this->sshKey = (string) config('services.ssh.key');
         $this->sshUser = (string) config('services.ssh.user');
 
         // Katalog na gniazda ControlMaster i known_hosts
@@ -49,45 +54,54 @@ class Fail2banSshClient
 
     public function fileSize(string $remotePath): int
     {
-        $out = $this->run('wc -c < ' . escapeshellarg($remotePath));
+        $out = $this->run('wc -c < '.escapeshellarg($remotePath));
+
         return (int) trim($out);
     }
 
     public function fileInode(string $remotePath): string
     {
-        $out = $this->run('stat -c %i ' . escapeshellarg($remotePath));
+        $out = $this->run('stat -c %i '.escapeshellarg($remotePath));
+
         return trim($out);
     }
 
     public function readFrom(string $remotePath, int $offsetBytes = 0): string
     {
         if ($offsetBytes <= 0) {
-            $cmd = 'cat ' . escapeshellarg($remotePath);
+            $cmd = 'cat '.escapeshellarg($remotePath);
         } else {
-            $cmd = 'tail -c +' . ($offsetBytes + 1) . ' ' . escapeshellarg($remotePath);
+            $cmd = 'tail -c +'.($offsetBytes + 1).' '.escapeshellarg($remotePath);
         }
 
         return $this->run($cmd);
     }
 
-    public function run(string $remoteCommand): string
+    /**
+     * Wykonuje polecenie na zdalnym hoście.
+     *
+     * @param  array<int, string>  $redact  Sekrety, które nigdy nie mogą trafić do logów
+     *
+     * @throws \RuntimeException
+     */
+    public function run(string $remoteCommand, array $redact = []): string
     {
-        $controlPath = $this->sshRuntimeDir() . '/cm-%C';
-        $knownHosts  = $this->sshRuntimeDir() . '/known_hosts';
+        $controlPath = $this->sshRuntimeDir().'/cm-%C';
+        $knownHosts = $this->sshRuntimeDir().'/known_hosts';
 
         $sshCommand = [
             'ssh',
             '-i', $this->sshKey,
             '-o', 'StrictHostKeyChecking=accept-new',
-            '-o', 'UserKnownHostsFile=' . $knownHosts,
+            '-o', 'UserKnownHostsFile='.$knownHosts,
             '-o', 'IdentitiesOnly=yes',
             '-o', 'BatchMode=yes',
-            '-o', 'ConnectTimeout=' . $this->connectTimeout,
+            '-o', 'ConnectTimeout='.$this->connectTimeout,
             '-o', 'ControlMaster=auto',
-            '-o', 'ControlPath=' . $controlPath,
+            '-o', 'ControlPath='.$controlPath,
             '-o', 'ControlPersist=60s',
             '-o', 'LogLevel=ERROR',
-            $this->sshUser . '@' . $this->host,
+            $this->sshUser.'@'.$this->host,
             $remoteCommand,
         ];
 
@@ -95,13 +109,13 @@ class Fail2banSshClient
         $process->setTimeout($this->commandTimeout);
         $process->run();
 
-        $stdout   = $process->getOutput();
-        $stderr   = trim($process->getErrorOutput());
+        $stdout = $process->getOutput();
+        $stderr = trim($process->getErrorOutput());
         $exitCode = $process->getExitCode();
 
-        $this->logStderr($remoteCommand, $stderr, $exitCode, $process->isSuccessful());
+        $this->logStderr($remoteCommand, $stderr, $exitCode, $process->isSuccessful(), $redact);
 
-        if (!$process->isSuccessful()) {
+        if (! $process->isSuccessful()) {
             throw new \RuntimeException(sprintf(
                 'SSH command failed (exit %d): %s',
                 $exitCode,
@@ -129,8 +143,8 @@ class Fail2banSshClient
     {
         $dir = $this->sshRuntimeDir();
 
-        if (!is_dir($dir)) {
-            if (!@mkdir($dir, 0700, true) && !is_dir($dir)) {
+        if (! is_dir($dir)) {
+            if (! @mkdir($dir, 0700, true) && ! is_dir($dir)) {
                 throw new \RuntimeException("Nie mogę utworzyć katalogu: {$dir}");
             }
         }
@@ -139,37 +153,62 @@ class Fail2banSshClient
         @chmod($dir, 0700);
     }
 
-    private function logStderr(string $command, string $stderr, ?int $exitCode, bool $success): void
+    /**
+     * @param  array<int, string>  $redact
+     */
+    private function logStderr(string $command, string $stderr, ?int $exitCode, bool $success, array $redact = []): void
     {
         if (empty($stderr)) {
             return;
         }
 
-        if (!$success || $exitCode !== 0) {
+        $command = $this->redactSecrets($command, $redact);
+        $stderr = $this->redactSecrets($stderr, $redact);
+
+        if (! $success || $exitCode !== 0) {
             Log::warning('SSH command failed', [
-                'host'      => $this->host,
-                'command'   => $command,
-                'stderr'    => $stderr,
+                'host' => $this->host,
+                'command' => $command,
+                'stderr' => $stderr,
                 'exit_code' => $exitCode,
             ]);
+
             return;
         }
 
         if ($this->isSuspiciousStderr($stderr)) {
             Log::warning('SSH command produced suspicious stderr', [
-                'host'      => $this->host,
-                'command'   => $command,
-                'stderr'    => $stderr,
+                'host' => $this->host,
+                'command' => $command,
+                'stderr' => $stderr,
                 'exit_code' => $exitCode,
             ]);
+
             return;
         }
 
         Log::debug('SSH command produced stderr (non-fatal)', [
-            'host'    => $this->host,
+            'host' => $this->host,
             'command' => $command,
-            'stderr'  => $stderr,
+            'stderr' => $stderr,
         ]);
+    }
+
+    /**
+     * Maskuje sekrety przed zapisem do logu. Wartości krótsze niż
+     * MIN_REDACT_LENGTH pomijamy, aby nie zamaskować fragmentów logu.
+     *
+     * @param  array<int, string>  $secrets
+     */
+    protected function redactSecrets(string $text, array $secrets): string
+    {
+        foreach ($secrets as $secret) {
+            if (strlen($secret) >= self::MIN_REDACT_LENGTH) {
+                $text = str_replace($secret, '[REDACTED]', $text);
+            }
+        }
+
+        return $text;
     }
 
     private function isSuspiciousStderr(string $stderr): bool
@@ -177,7 +216,7 @@ class Fail2banSshClient
         $lower = strtolower($stderr);
 
         foreach (self::BENIGN_STDERR_PATTERNS as $pattern) {
-            if (preg_match('/' . $pattern . '/i', $stderr)) {
+            if (preg_match('/'.$pattern.'/i', $stderr)) {
                 return false;
             }
         }

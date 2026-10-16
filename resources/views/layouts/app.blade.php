@@ -939,6 +939,9 @@
             let loginInput = document.getElementById('edit_login');
             if (loginInput) loginInput.value = username;
 
+            let loginHiddenInput = document.getElementById('edit_login_hidden');
+            if (loginHiddenInput) loginHiddenInput.value = username;
+
             let nameParts = fullName ? fullName.trim().split(' ') : [];
             let imieInput = document.getElementById('edit_imie');
             let nazwiskoInput = document.getElementById('edit_nazwisko');
@@ -948,12 +951,23 @@
             let emailPlInput = document.getElementById('edit_email_pl');
             if (emailPlInput) emailPlInput.value = primaryEmail;
 
+            let emailPlHiddenInput = document.getElementById('edit_email_pl_hidden');
+            if (emailPlHiddenInput) emailPlHiddenInput.value = primaryEmail;
+
             let localPart = primaryEmail ? primaryEmail.split('@')[0] : '';
+            let secondaryEmail = localPart ? localPart + '@telmor.com.pl' : '';
+
             let emailComPlInput = document.getElementById('edit_email_com_pl');
-            if (emailComPlInput) emailComPlInput.value = localPart ? localPart + '@telmor.com.pl' : '';
+            if (emailComPlInput) emailComPlInput.value = secondaryEmail;
+
+            let emailComPlHiddenInput = document.getElementById('edit_email_com_pl_hidden');
+            if (emailComPlHiddenInput) emailComPlHiddenInput.value = secondaryEmail;
 
             let mailHostInput = document.getElementById('edit_mail_host');
             if (mailHostInput) mailHostInput.value = mailHost;
+
+            let mailHostHiddenInput = document.getElementById('edit_mail_host_hidden');
+            if (mailHostHiddenInput) mailHostHiddenInput.value = mailHost;
 
             let editPasswordInput = document.getElementById('edit_password');
             if (editPasswordInput) editPasswordInput.value = '';

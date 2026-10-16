@@ -14,7 +14,7 @@ class MailUserController extends Controller
 
         return view('mail-users', [
             'users' => $users,
-            'columns' => $columns
+            'columns' => $columns,
         ]);
     }
 
@@ -26,7 +26,7 @@ class MailUserController extends Controller
             'nazwisko' => 'required|string|max:64',
             'email_local_part' => 'required|string|max:64',
             'mail_host' => 'required|string|max:128',
-            'password' => 'required|string',
+            'password' => 'required|string|max:128|regex:/^[^\x00-\x1F\x7F]+$/',
         ]);
 
         try {
@@ -41,7 +41,7 @@ class MailUserController extends Controller
 
             return redirect('/mail-users')->with([
                 'success' => 'Kompletne konto pocztowe zostało utworzone.',
-                'server_log' => $outputLog
+                'server_log' => $outputLog,
             ]);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()])->withInput();
@@ -57,7 +57,7 @@ class MailUserController extends Controller
             'email_pl' => 'required|email|max:128',
             'email_com_pl' => 'required|email|max:128',
             'mail_host' => 'required|string|max:128',
-            'password' => 'nullable|string',
+            'password' => 'nullable|string|max:128|regex:/^[^\x00-\x1F\x7F]+$/',
         ]);
 
         try {
@@ -74,7 +74,7 @@ class MailUserController extends Controller
 
             return redirect('/mail-users')->with([
                 'success' => 'Dane użytkownika i hasło zostały zaktualizowane.',
-                'server_log' => $outputLog
+                'server_log' => $outputLog,
             ]);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()])->withInput();
@@ -85,9 +85,10 @@ class MailUserController extends Controller
     {
         try {
             $outputLog = $mailService->deleteRoundcubeUser($id);
+
             return redirect('/mail-users')->with([
                 'success' => 'Użytkownik został usunięty.',
-                'server_log' => $outputLog
+                'server_log' => $outputLog,
             ]);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);

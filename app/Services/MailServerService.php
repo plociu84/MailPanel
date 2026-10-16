@@ -7,17 +7,96 @@ use Exception;
 
 class MailServerService
 {
+    /**
+     * Minimalna długość sekretu maskowanego w logach. Krótszych wartości nie
+     * maskujemy, aby nie zniszczyć czytelności logów (nie trafiają do komend).
+     */
+    private const MIN_REDACT_LENGTH = 4;
+
     public function __construct(
         private Fail2banSshClient $sshClient
     ) {}
 
-    public function execute(string $command): string
+    /**
+     * Wykonuje polecenie na zdalnym hoście.
+     *
+     * @param  array<int, string>  $redact  Sekrety, które mają zostać zamaskowane w logach SSH
+     */
+    public function execute(string $command, array $redact = []): string
     {
         try {
-            return trim($this->sshClient->run($command));
-        } catch (\Exception $e) {
-            throw new Exception("SSH Command failed: " . $e->getMessage());
+            return trim($this->sshClient->run($command, $redact));
+        } catch (Exception $e) {
+            throw new Exception('SSH Command failed: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Loginy są wstawiane do skryptu powłoki wykonywanego na serwerze poczty,
+     * dlatego dopuszczamy wyłącznie znaki bezpieczne dla shella oraz dla formatu
+     * "login:hasło", który czyta chpasswd.
+     *
+     * @throws Exception
+     */
+    private function assertSafeLogin(string $login): void
+    {
+        if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._@-]*$/', $login) !== 1) {
+            throw new Exception("Nieprawidłowy login użytkownika poczty: '{$login}'");
+        }
+    }
+
+    /**
+     * Maskuje sekrety w tekście przeznaczonym do logu.
+     *
+     * @param  array<int, string>  $secrets
+     */
+    private function redactSecrets(string $text, array $secrets): string
+    {
+        foreach ($secrets as $secret) {
+            if (strlen($secret) >= self::MIN_REDACT_LENGTH) {
+                $text = str_replace($secret, '[REDACTED]', $text);
+            }
+        }
+
+        return $text;
+    }
+
+    /**
+     * Wybiera z podanych wartości te, które należy maskować w logach.
+     *
+     * @param  array<int, string|null>  $values
+     * @return array<int, string>
+     */
+    private function secretsForLog(array $values): array
+    {
+        return array_values(array_filter(
+            $values,
+            static fn (?string $value): bool => is_string($value) && strlen($value) >= self::MIN_REDACT_LENGTH
+        ));
+    }
+
+    /**
+     * Escape'uje wartość tak, aby w wyrażeniu regularnym sed (BRE) była ciągiem literalnym.
+     */
+    private function escapeSedPattern(string $value): string
+    {
+        return str_replace(
+            ['\\', '/', '.', '*', '[', ']', '^', '$'],
+            ['\\\\', '\\/', '\\.', '\\*', '\\[', '\\]', '\\^', '\\$'],
+            $value
+        );
+    }
+
+    /**
+     * Buduje literał SQL dla wywołania `mysql -e`.
+     *
+     * Powłokę zabezpiecza escapeshellarg() w miejscu wywołania (całe zapytanie),
+     * więc tutaj podwajamy wyłącznie znaki istotne dla parsera SQL: apostrof
+     * oraz backslash (MySQL domyślnie traktuje backslash jako znak ucieczki).
+     */
+    private function sqlLiteral(string $value): string
+    {
+        return "'".str_replace(['\\', "'"], ['\\\\', "''"], $value)."'";
     }
 
     public function getRoundcubeUsers(): array
@@ -30,13 +109,15 @@ class MailServerService
                         WHERE standard = 1 
                         GROUP BY user_id
                     ) i ON u.user_id = i.user_id;";
-        
-        $command = sprintf("mysql -N -e %s", escapeshellarg($query));
+
+        $command = sprintf('mysql -N -e %s', escapeshellarg($query));
         $output = $this->execute($command);
-        
+
         $users = [];
         foreach (explode("\n", trim($output)) as $line) {
-            if (empty($line)) continue;
+            if (empty($line)) {
+                continue;
+            }
             $users[] = explode("\t", $line);
         }
 
@@ -50,138 +131,161 @@ class MailServerService
 
     public function createRoundcubeUser(string $login, string $imie, string $nazwisko, string $emailLocalPart, string $mailHost = 'localhost', string $password = ''): string
     {
-        $imieNazwisko = trim($imie . ' ' . $nazwisko);
-        $emailPl = $emailLocalPart . '@telmor.pl';
-        $emailComPl = $emailLocalPart . '@telmor.com.pl';
+        $imieNazwisko = trim($imie.' '.$nazwisko);
+        $emailPl = $emailLocalPart.'@telmor.pl';
+        $emailComPl = $emailLocalPart.'@telmor.com.pl';
         $cyrusUser = (string) config('services.cyrus.admin_user', 'cyrus');
         $cyrusPassword = (string) config('services.cyrus.admin_password');
 
-        $script = "set -x;\n";
-        $script .= "echo '=== START TWORZENIA KONTA: " . $login . " (" . date('Y-m-d H:i:s') . ") ===' >> /var/log/konta.log;\n";
+        $this->assertSafeLogin($login);
+
+        $script = "echo '=== START TWORZENIA KONTA: ".$login.' ('.date('Y-m-d H:i:s').") ===' >> /var/log/konta.log;\n";
 
         // 1. Tworzenie usera systemowego
         $script .= sprintf("echo '--> Tworzenie użytkownika systemowego %1\$s' 2>&1;\n", $login);
         $script .= sprintf("useradd -d /home/telmor/%1\$s -g telmor -M -s /bin/false %1\$s 2>&1;\n", $login);
-        
-        if (!empty($password)) {
+
+        $passwordPayload = '';
+
+        if ($password !== '') {
+            $passwordPayload = base64_encode($login.':'.$password."\n");
             $script .= "echo '--> Ustawianie hasła systemowego' 2>&1;\n";
-            $script .= sprintf("echo '%1\$s:%2\$s' | chpasswd 2>&1;\n", $login, $password);
+            $script .= "printf '%s' ".escapeshellarg($passwordPayload)." | base64 -d | chpasswd 2>&1;\n";
         }
 
         // 2. Wpisy do Postfix vusertable
         $script .= "echo '--> Dodawanie wpisów do Postfix vusertable' 2>&1;\n";
-        $script .= sprintf("echo -e \"%s\t%s\" >> /etc/postfix/vusertable;\n", $emailPl, $login);
-        $script .= sprintf("echo -e \"%s\t%s\" >> /etc/postfix/vusertable;\n", $emailComPl, $login);
+        $script .= sprintf("printf '%%s\\t%%s\\n' %s %s >> /etc/postfix/vusertable;\n", escapeshellarg($emailPl), escapeshellarg($login));
+        $script .= sprintf("printf '%%s\\t%%s\\n' %s %s >> /etc/postfix/vusertable;\n", escapeshellarg($emailComPl), escapeshellarg($login));
         $script .= "postmap /etc/postfix/vusertable 2>&1;\n";
         $script .= "postfix reload 2>&1;\n";
 
         // 3. Cyrus IMAP
         $script .= "echo '--> Tworzenie skrzynek w Cyrus IMAP' 2>&1;\n";
         $script .= "cat << 'EOF_CYRADM' > /tmp/cyradm_commands.txt\n";
-        $script .= "cm user." . $login . "\n";
-        $script .= "cm user." . $login . ".Trash\n";
-        $script .= "cm user." . $login . ".Sent\n";
-        $script .= "cm user." . $login . ".Drafts\n";
-        $script .= "cm user." . $login . ".antyspam\n";
-        $script .= "sam user." . $login . ".antyspam anyone p\n";
-        $script .= "mboxcfg user." . $login . ".antyspam expire 14\n";
-        $script .= "mboxcfg user." . $login . ".Trash expire 7\n";
-        $script .= "sq user." . $login . " STORAGE 2097152\n";
+        $script .= 'cm user.'.$login."\n";
+        $script .= 'cm user.'.$login.".Trash\n";
+        $script .= 'cm user.'.$login.".Sent\n";
+        $script .= 'cm user.'.$login.".Drafts\n";
+        $script .= 'cm user.'.$login.".antyspam\n";
+        $script .= 'sam user.'.$login.".antyspam anyone p\n";
+        $script .= 'mboxcfg user.'.$login.".antyspam expire 14\n";
+        $script .= 'mboxcfg user.'.$login.".Trash expire 7\n";
+        $script .= 'sq user.'.$login." STORAGE 2097152\n";
         $script .= "quit\n";
         $script .= "EOF_CYRADM\n";
-        
+
         $script .= sprintf("export TERM=dumb; cyradm --user %s --password %s localhost < /tmp/cyradm_commands.txt 2>&1 | sed 's/localhost> //g';\n", escapeshellarg($cyrusUser), escapeshellarg($cyrusPassword));
         $script .= "rm -f /tmp/cyradm_commands.txt;\n";
 
         // 4. Baza Roundcube
         $sqlRoundcube = sprintf(
-            "INSERT INTO roundcubemail.users (username, mail_host, created, language, preferences) VALUES (%1\$s, %2\$s, NOW(), 'pl_PL', 'a:0:{}'); " .
-            "SET @rc_id = LAST_INSERT_ID(); " .
-            "INSERT INTO roundcubemail.identities (user_id, changed, del, standard, name, email) VALUES (@rc_id, NOW(), 0, 1, %3\$s, %4\$s); " .
-            "INSERT INTO roundcubemail.identities (user_id, changed, del, standard, name, email) VALUES (@rc_id, NOW(), 0, 0, %3\$s, %5\$s);",
-            escapeshellarg($login),
-            escapeshellarg($mailHost),
-            escapeshellarg($imieNazwisko),
-            escapeshellarg($emailPl),
-            escapeshellarg($emailComPl)
+            "INSERT INTO roundcubemail.users (username, mail_host, created, language, preferences) VALUES (%1\$s, %2\$s, NOW(), 'pl_PL', 'a:0:{}'); ".
+            'SET @rc_id = LAST_INSERT_ID(); '.
+            'INSERT INTO roundcubemail.identities (user_id, changed, del, standard, name, email) VALUES (@rc_id, NOW(), 0, 1, %3$s, %4$s); '.
+            'INSERT INTO roundcubemail.identities (user_id, changed, del, standard, name, email) VALUES (@rc_id, NOW(), 0, 0, %3$s, %5$s);',
+            $this->sqlLiteral($login),
+            $this->sqlLiteral($mailHost),
+            $this->sqlLiteral($imieNazwisko),
+            $this->sqlLiteral($emailPl),
+            $this->sqlLiteral($emailComPl)
         );
 
         $script .= "echo '--> Zapisywanie w bazie Roundcube' 2>&1;\n";
         $script .= sprintf("mysql -e %s 2>&1;\n", escapeshellarg($sqlRoundcube));
         $script .= "echo '=== KONIEC TWORZENIA KONTA ===' >> /var/log/konta.log;\n";
 
+        $secrets = $this->secretsForLog([$password, $passwordPayload]);
+
         try {
-            $output = $this->execute($script);
-            $this->execute("echo " . escapeshellarg($output) . " >> /var/log/konta.log");
+            $output = $this->execute($script, $secrets);
+            $output = $this->redactSecrets($output, $secrets);
+            $this->execute('echo '.escapeshellarg($output).' >> /var/log/konta.log', $secrets);
+
             return $output;
         } catch (Exception $e) {
-            throw new Exception("Błąd podczas pełnego tworzenia konta: " . $e->getMessage());
+            throw new Exception('Błąd podczas pełnego tworzenia konta: '.$e->getMessage());
         }
     }
 
     public function updateRoundcubeUser(int $userId, string $login, string $imie, string $nazwisko, string $emailPl, string $emailComPl, string $mailHost, ?string $password = null): string
     {
-        $imieNazwisko = trim($imie . ' ' . $nazwisko);
+        $imieNazwisko = trim($imie.' '.$nazwisko);
 
-        $script = "echo '=== START AKTUALIZACJI KONTA: " . $login . " (" . date('Y-m-d H:i:s') . ") ===' >> /var/log/konta.log;\n";
+        $this->assertSafeLogin($login);
 
-        if (!empty($password)) {
-            $script .= sprintf("echo '--> Zmiana hasła systemowego dla %1\$s'; echo '%1\$s:%2\$s' | chpasswd 2>&1;\n", $login, $password);
+        $script = "echo '=== START AKTUALIZACJI KONTA: ".$login.' ('.date('Y-m-d H:i:s').") ===' >> /var/log/konta.log;\n";
+
+        $passwordPayload = '';
+
+        if ($password !== null && $password !== '') {
+            $passwordPayload = base64_encode($login.':'.$password."\n");
+            $script .= sprintf("echo '--> Zmiana hasła systemowego dla ' %s;\n", escapeshellarg($login));
+            $script .= "printf '%s' ".escapeshellarg($passwordPayload)." | base64 -d | chpasswd 2>&1;\n";
         }
 
         $sql = sprintf(
-            "UPDATE roundcubemail.users SET username = %1\$s, mail_host = %2\$s WHERE user_id = %3\$d; " .
-            "UPDATE roundcubemail.identities SET name = %4\$s, email = %5\$s WHERE user_id = %3\$d AND standard = 1; " .
-            "UPDATE roundcubemail.identities SET name = %4\$s, email = %6\$s WHERE user_id = %3\$d AND standard = 0;",
-            escapeshellarg($login),
-            escapeshellarg($mailHost),
+            'UPDATE roundcubemail.users SET username = %1$s, mail_host = %2$s WHERE user_id = %3$d; '.
+            'UPDATE roundcubemail.identities SET name = %4$s, email = %5$s WHERE user_id = %3$d AND standard = 1; '.
+            'UPDATE roundcubemail.identities SET name = %4$s, email = %6$s WHERE user_id = %3$d AND standard = 0;',
+            $this->sqlLiteral($login),
+            $this->sqlLiteral($mailHost),
             $userId,
-            escapeshellarg($imieNazwisko),
-            escapeshellarg($emailPl),
-            escapeshellarg($emailComPl)
+            $this->sqlLiteral($imieNazwisko),
+            $this->sqlLiteral($emailPl),
+            $this->sqlLiteral($emailComPl)
         );
 
         $script .= sprintf("echo '--> Aktualizacja wpisów w bazie Roundcube'; mysql -e %s 2>&1;\n", escapeshellarg($sql));
         $script .= "echo '=== KONIEC AKTUALIZACJI KONTA ===' >> /var/log/konta.log;\n";
 
+        $secrets = $this->secretsForLog([$password, $passwordPayload]);
+
         try {
-            return $this->execute($script);
+            $output = $this->execute($script, $secrets);
+
+            return $this->redactSecrets($output, $secrets);
         } catch (Exception $e) {
-            throw new Exception("Błąd podczas aktualizacji użytkownika: " . $e->getMessage());
+            throw new Exception('Błąd podczas aktualizacji użytkownika: '.$e->getMessage());
         }
     }
 
     public function deleteRoundcubeUser(int $userId): string
     {
-        $queryLogin = sprintf("SELECT username FROM roundcubemail.users WHERE user_id = %d;", $userId);
-        $commandLogin = sprintf("mysql -N -e %s", escapeshellarg($queryLogin));
+        $queryLogin = sprintf('SELECT username FROM roundcubemail.users WHERE user_id = %d;', $userId);
+        $commandLogin = sprintf('mysql -N -e %s', escapeshellarg($queryLogin));
         $login = trim($this->execute($commandLogin));
 
         if (empty($login)) {
             throw new Exception("Nie znaleziono użytkownika o ID: $userId");
         }
 
-        $script = "echo '=== START USUWANIA KONTA: " . $login . " (" . date('Y-m-d H:i:s') . ") ===' >> /var/log/konta.log;\n";
+        $script = "echo '=== START USUWANIA KONTA: ' ".escapeshellarg($login)." ' (".date('Y-m-d H:i:s').") ===' >> /var/log/konta.log;\n";
 
-        $queryEmails = sprintf("SELECT email FROM roundcubemail.identities WHERE user_id = %d;", $userId);
-        $commandEmails = sprintf("mysql -N -e %s", escapeshellarg($queryEmails));
+        $queryEmails = sprintf('SELECT email FROM roundcubemail.identities WHERE user_id = %d;', $userId);
+        $commandEmails = sprintf('mysql -N -e %s', escapeshellarg($queryEmails));
         $emailsOutput = $this->execute($commandEmails);
         $emails = array_filter(explode("\n", $emailsOutput));
 
         $script .= "echo '--> Usuwanie wpisów z Postfix vusertable';";
         foreach ($emails as $email) {
             $email = trim($email);
-            if (!empty($email)) {
-                $script .= sprintf("sed -i '/^%s\\s/d' /etc/postfix/vusertable; ", $email);
+            if (! empty($email)) {
+                $sedPattern = '/^'.$this->escapeSedPattern($email).'\s/d';
+                $script .= sprintf('sed -i %s /etc/postfix/vusertable; ', escapeshellarg($sedPattern));
             }
         }
         $script .= "postmap /etc/postfix/vusertable; postfix reload 2>&1;\n";
 
-        $script .= sprintf("echo '--> Usuwanie użytkownika systemowego Linux %s'; userdel %s 2>&1;\n", $login, $login);
+        $script .= sprintf(
+            "echo '--> Usuwanie użytkownika systemowego Linux ' %s; userdel %s 2>&1;\n",
+            escapeshellarg($login),
+            escapeshellarg($login)
+        );
 
         $sqlRoundcube = sprintf(
-            "DELETE FROM roundcubemail.identities WHERE user_id = %d; " .
-            "DELETE FROM roundcubemail.users WHERE user_id = %d;",
+            'DELETE FROM roundcubemail.identities WHERE user_id = %d; '.
+            'DELETE FROM roundcubemail.users WHERE user_id = %d;',
             $userId,
             $userId
         );
@@ -191,7 +295,7 @@ class MailServerService
         try {
             return $this->execute($script);
         } catch (Exception $e) {
-            throw new Exception("Błąd podczas usuwania użytkownika: " . $e->getMessage());
+            throw new Exception('Błąd podczas usuwania użytkownika: '.$e->getMessage());
         }
     }
 
@@ -201,12 +305,12 @@ class MailServerService
 
     public function getAliases(): array
     {
-        $raw = $this->execute("cat /etc/postfix/valiastable");
+        $raw = $this->execute('cat /etc/postfix/valiastable');
         $aliases = [];
 
         foreach (explode("\n", $raw) as $line) {
             $lineTrim = trim($line);
-            
+
             if (empty($lineTrim) || strpos($lineTrim, '#') === 0) {
                 continue;
             }
@@ -228,13 +332,14 @@ class MailServerService
         $alias = trim($alias);
         $destination = trim($destination);
 
-        $raw = $this->execute("cat /etc/postfix/valiastable");
+        $raw = $this->execute('cat /etc/postfix/valiastable');
         $lines = explode("\n", $raw);
-        
-        $newLine = sprintf("%-35s %s", $alias, $destination);
+
+        $newLine = sprintf('%-35s %s', $alias, $destination);
         $lines[] = $newLine;
 
         $updatedContent = implode("\n", $lines);
+
         return $this->saveValiastableContent($updatedContent, "DODAWANIE ALIASU: {$alias} -> {$destination}");
     }
 
@@ -244,7 +349,7 @@ class MailServerService
         $newAlias = trim($newAlias);
         $destination = trim($destination);
 
-        $raw = $this->execute("cat /etc/postfix/valiastable");
+        $raw = $this->execute('cat /etc/postfix/valiastable');
         $lines = explode("\n", $raw);
         $updatedLines = [];
         $replaced = false;
@@ -254,24 +359,26 @@ class MailServerService
 
             if (empty($lineTrim) || strpos($lineTrim, '#') === 0) {
                 $updatedLines[] = $line;
+
                 continue;
             }
 
             $parts = preg_split('/\s+/', $lineTrim, 2);
 
             if (count($parts) === 2 && $parts[0] === $oldAlias) {
-                $updatedLines[] = sprintf("%-35s %s", $newAlias, $destination);
+                $updatedLines[] = sprintf('%-35s %s', $newAlias, $destination);
                 $replaced = true;
             } else {
                 $updatedLines[] = $line;
             }
         }
 
-        if (!$replaced) {
-            $updatedLines[] = sprintf("%-35s %s", $newAlias, $destination);
+        if (! $replaced) {
+            $updatedLines[] = sprintf('%-35s %s', $newAlias, $destination);
         }
 
         $updatedContent = implode("\n", $updatedLines);
+
         return $this->saveValiastableContent($updatedContent, "AKTUALIZACJA ALIASU: {$oldAlias} -> {$newAlias}");
     }
 
@@ -279,7 +386,7 @@ class MailServerService
     {
         $alias = trim($alias);
 
-        $raw = $this->execute("cat /etc/postfix/valiastable");
+        $raw = $this->execute('cat /etc/postfix/valiastable');
         $lines = explode("\n", $raw);
         $updatedLines = [];
 
@@ -288,6 +395,7 @@ class MailServerService
 
             if (empty($lineTrim) || strpos($lineTrim, '#') === 0) {
                 $updatedLines[] = $line;
+
                 continue;
             }
 
@@ -301,6 +409,7 @@ class MailServerService
         }
 
         $updatedContent = implode("\n", $updatedLines);
+
         return $this->saveValiastableContent($updatedContent, "USUWANIE ALIASU: {$alias}");
     }
 
@@ -323,12 +432,12 @@ class MailServerService
 
     public function getSenderRules(): array
     {
-        $raw = $this->execute("cat /etc/postfix/vsendertable");
+        $raw = $this->execute('cat /etc/postfix/vsendertable');
         $rules = [];
 
         foreach (explode("\n", $raw) as $line) {
             $lineTrim = trim($line);
-            
+
             if (empty($lineTrim) || strpos($lineTrim, '#') === 0) {
                 continue;
             }
@@ -350,13 +459,14 @@ class MailServerService
         $sender = trim($sender);
         $allowedLogins = trim($allowedLogins);
 
-        $raw = $this->execute("cat /etc/postfix/vsendertable");
+        $raw = $this->execute('cat /etc/postfix/vsendertable');
         $lines = explode("\n", $raw);
-        
-        $newLine = sprintf("%-35s %s", $sender, $allowedLogins);
+
+        $newLine = sprintf('%-35s %s', $sender, $allowedLogins);
         $lines[] = $newLine;
 
         $updatedContent = implode("\n", $lines);
+
         return $this->saveVsendertableContent($updatedContent, "DODAWANIE UPRAWNIENIA NADAWCY: {$sender} -> {$allowedLogins}");
     }
 
@@ -366,7 +476,7 @@ class MailServerService
         $newSender = trim($newSender);
         $allowedLogins = trim($allowedLogins);
 
-        $raw = $this->execute("cat /etc/postfix/vsendertable");
+        $raw = $this->execute('cat /etc/postfix/vsendertable');
         $lines = explode("\n", $raw);
         $updatedLines = [];
         $replaced = false;
@@ -376,24 +486,26 @@ class MailServerService
 
             if (empty($lineTrim) || strpos($lineTrim, '#') === 0) {
                 $updatedLines[] = $line;
+
                 continue;
             }
 
             $parts = preg_split('/\s+/', $lineTrim, 2);
 
             if (count($parts) === 2 && $parts[0] === $oldSender) {
-                $updatedLines[] = sprintf("%-35s %s", $newSender, $allowedLogins);
+                $updatedLines[] = sprintf('%-35s %s', $newSender, $allowedLogins);
                 $replaced = true;
             } else {
                 $updatedLines[] = $line;
             }
         }
 
-        if (!$replaced) {
-            $updatedLines[] = sprintf("%-35s %s", $newSender, $allowedLogins);
+        if (! $replaced) {
+            $updatedLines[] = sprintf('%-35s %s', $newSender, $allowedLogins);
         }
 
         $updatedContent = implode("\n", $updatedLines);
+
         return $this->saveVsendertableContent($updatedContent, "AKTUALIZACJA UPRAWNIENIA NADAWCY: {$oldSender} -> {$newSender}");
     }
 
@@ -401,7 +513,7 @@ class MailServerService
     {
         $sender = trim($sender);
 
-        $raw = $this->execute("cat /etc/postfix/vsendertable");
+        $raw = $this->execute('cat /etc/postfix/vsendertable');
         $lines = explode("\n", $raw);
         $updatedLines = [];
 
@@ -410,6 +522,7 @@ class MailServerService
 
             if (empty($lineTrim) || strpos($lineTrim, '#') === 0) {
                 $updatedLines[] = $line;
+
                 continue;
             }
 
@@ -423,6 +536,7 @@ class MailServerService
         }
 
         $updatedContent = implode("\n", $updatedLines);
+
         return $this->saveVsendertableContent($updatedContent, "USUWANIE UPRAWNIENIA NADAWCY: {$sender}");
     }
 
@@ -445,12 +559,12 @@ class MailServerService
 
     public function getInternalRcpts(): array
     {
-        $raw = $this->execute("cat /etc/postfix/internal_rcpts_only");
+        $raw = $this->execute('cat /etc/postfix/internal_rcpts_only');
         $items = [];
 
         foreach (explode("\n", $raw) as $line) {
             $lineTrim = trim($line);
-            
+
             if (empty($lineTrim) || strpos($lineTrim, '#') === 0) {
                 continue;
             }
@@ -472,13 +586,14 @@ class MailServerService
         $recipient = trim($recipient);
         $action = trim($action);
 
-        $raw = $this->execute("cat /etc/postfix/internal_rcpts_only");
+        $raw = $this->execute('cat /etc/postfix/internal_rcpts_only');
         $lines = explode("\n", $raw);
-        
-        $newLine = sprintf("%-35s %s", $recipient, $action);
+
+        $newLine = sprintf('%-35s %s', $recipient, $action);
         $lines[] = $newLine;
 
         $updatedContent = implode("\n", $lines);
+
         return $this->saveInternalRcptsContent($updatedContent, "DODAWANIE BLOKADY Z zEWNĄTRZ: {$recipient} -> {$action}");
     }
 
@@ -488,7 +603,7 @@ class MailServerService
         $newRecipient = trim($newRecipient);
         $action = trim($action);
 
-        $raw = $this->execute("cat /etc/postfix/internal_rcpts_only");
+        $raw = $this->execute('cat /etc/postfix/internal_rcpts_only');
         $lines = explode("\n", $raw);
         $updatedLines = [];
         $replaced = false;
@@ -498,24 +613,26 @@ class MailServerService
 
             if (empty($lineTrim) || strpos($lineTrim, '#') === 0) {
                 $updatedLines[] = $line;
+
                 continue;
             }
 
             $parts = preg_split('/\s+/', $lineTrim, 2);
 
             if (count($parts) === 2 && $parts[0] === $oldRecipient) {
-                $updatedLines[] = sprintf("%-35s %s", $newRecipient, $action);
+                $updatedLines[] = sprintf('%-35s %s', $newRecipient, $action);
                 $replaced = true;
             } else {
                 $updatedLines[] = $line;
             }
         }
 
-        if (!$replaced) {
-            $updatedLines[] = sprintf("%-35s %s", $newRecipient, $action);
+        if (! $replaced) {
+            $updatedLines[] = sprintf('%-35s %s', $newRecipient, $action);
         }
 
         $updatedContent = implode("\n", $updatedLines);
+
         return $this->saveInternalRcptsContent($updatedContent, "AKTUALIZACJA BLOKADY Z ZEWNĄTRZ: {$oldRecipient} -> {$newRecipient}");
     }
 
@@ -523,7 +640,7 @@ class MailServerService
     {
         $recipient = trim($recipient);
 
-        $raw = $this->execute("cat /etc/postfix/internal_rcpts_only");
+        $raw = $this->execute('cat /etc/postfix/internal_rcpts_only');
         $lines = explode("\n", $raw);
         $updatedLines = [];
 
@@ -532,6 +649,7 @@ class MailServerService
 
             if (empty($lineTrim) || strpos($lineTrim, '#') === 0) {
                 $updatedLines[] = $line;
+
                 continue;
             }
 
@@ -545,6 +663,7 @@ class MailServerService
         }
 
         $updatedContent = implode("\n", $updatedLines);
+
         return $this->saveInternalRcptsContent($updatedContent, "USUWANIE BLOKADY Z ZEWNĄTRZ: {$recipient}");
     }
 

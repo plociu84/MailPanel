@@ -1,0 +1,9 @@
+name: Laravel Boost MCP
+version: 1.0.0
+schema: v1
+mcpServers:
+  - name: laravel-boost
+    command: php
+    args:
+      - artisan
+      - boost:mcp
